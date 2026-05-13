@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAIRON Dashboard - Trading Signals</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .signal-card {
+            transition: all 0.3s ease;
+        }
+        .signal-card:hover {
+            transform: translateY(-5px);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-900">
+    <!-- Navigation -->
+    <nav class="bg-gray-900/95 backdrop-blur-lg border-b border-gray-800 fixed w-full z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-chart-line text-blue-500 text-2xl"></i>
+                    <span class="ml-2 text-xl font-bold text-white">KAIRON</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="subscriptionBadge" class="px-3 py-1 bg-green-600 text-white text-sm rounded-full">
+                        <i class="fas fa-crown mr-1"></i> Active
+                    </span>
+                    <button onclick="logout()" class="px-4 py-2 bg-red-600/20 text-red-400 border border-red-600 rounded-lg hover:bg-red-600/30 transition">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="pt-20 pb-8 px-4">
+        <div class="max-w-7xl mx-auto">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-2xl p-6 border border-blue-500/30">
+                    <i class="fas fa-chart-line text-blue-400 text-2xl mb-2"></i>
+                    <p class="text-gray-400 text-sm">Win Rate</p>
+                    <p class="text-3xl font-bold text-white" id="winRate">0%</p>
+                </div>
+                <div class="bg-gradient-to-br from-green-600/20 to-emerald-600/20 rounded-2xl p-6 border border-green-500/30">
+                    <i class="fas fa-check-circle text-green-400 text-2xl mb-2"></i>
+                    <p class="text-gray-400 text-sm">Successful Trades</p>
+                    <p class="text-3xl font-bold text-white" id="successfulTrades">0</p>
+                </div>
+                <div class="bg-gradient-to-br from-yellow-600/20 to-orange-600/20 rounded-2xl p-6 border border-yellow-500/30">
+                    <i class="fas fa-chart-simple text-yellow-400 text-2xl mb-2"></i>
+                    <p class="text-gray-400 text-sm">Total Signals</p>
+                    <p class="text-3xl font-bold text-white" id="totalSignals">0</p>
+                </div>
+                <div class="bg-gradient-to-br from-purple-600/20 to-pink-600/20 rounded-2xl p-6 border border-purple-500/30">
+                    <i class="fas fa-clock text-purple-400 text-2xl mb-2"></i>
+                    <p class="text-gray-400 text-sm">Session Active</p>
+                    <p class="text-3xl font-bold text-white" id="sessionTime">--:--:--</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Trading Controls -->
+                <div class="lg:col-span-1">
+                    <div class="bg-gray-800/50 backdrop-blur-lg rounded-2xl p-6 border border-gray-700">
+                        <h2 class="text-xl font-bold text-white mb-4">Trading Signals</h2>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Select Market</label>
+                                <select id="marketType" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white">
+                                    <option value="rise_fall">Rise/Fall Market</option>
+                                    <option value="digits">Digits Market</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Select Instrument</label>
+                                <select id="symbol" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white">
+                                    <option value="R_10">Volatility 10 Index</option>
+                                    <option value="R_50">Volatility 50 Index</option>
+                                    <option value="R_75">Volatility 75 Index</option>
+                                    <option value="R_100">Volatility 100 Index</option>
+                                </select>
+                            </div>
+                            
+                            <button onclick="getSignal()" id="getSignalBtn" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
+                                <i class="fas fa-chart-line mr-2"></i>Get Signal
+                            </button>
+                        </div>
+
+                        <!-- Signal Display -->
+                        <div id="signalDisplay" class="hidden mt-6 p-4 rounded-lg border transition-all">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
+
+                    <!-- Subscription Info -->
+                    <div class="mt-6 bg-gradient-to-r from-purple-900/30 to-blue-900/30 rounded-2xl p-6 border border-purple-700">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-white">Subscription</h3>
+                            <i class="fas fa-credit-card text-purple-400"></i>
+                        </div>
+                        <p class="text-gray-300 text-sm" id="subscriptionInfo">Loading...</p>
+                        <button onclick="showUpgradeModal()" class="mt-4 w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition">
+                            <i class="fas fa-arrow-up mr-2"></i>Upgrade Plan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chart and History -->
+                <div class="lg:col-span-2">
+                    <div class="bg-gray-800/50 backdrop-blur-lg rounded-2xl p-6 border border-gray-700">
+                        <h2 class="text-xl font-bold text-white mb-4">Market Analysis</h2>
+                        <canvas id="priceChart" height="300"></canvas>
+                        
+                        <div class="mt-4 flex justify-between items-center">
+                            <div class="flex space-x-4 text-sm">
+                                <div class="flex items-center">
+                                    <i class="fas fa-bell text-blue-400 mr-1"></i>
+                                    <span class="text-gray-400">Real-time alerts enabled</span>
+                                </div>
+                            </div>
+                            <div class="text-gray-500 text-sm" id="lastUpdate">
+                                Last updated: --
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Signal History -->
+                    <div class="mt-6 bg-gray-800/50 backdrop-blur-lg rounded-2xl p-6 border border-gray-700">
+                        <h2 class="text-xl font-bold text-white mb-4">Signal History</h2>
+                        <div id="signalHistory" class="space-y-2 max-h-64 overflow-y-auto">
+                            <p class="text-gray-500 text-center py-4">No signals yet. Click "Get Signal" to start.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-2xl p-8 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">Upgrade Plan</h2>
+                <button onclick="closePaymentModal()" class="text-gray-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div id="paymentContent"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
