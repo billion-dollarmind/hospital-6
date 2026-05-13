@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAIRON - Professional Trading Signals</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900">
+    <!-- Navigation -->
+    <nav class="bg-gray-900/95 backdrop-blur-lg border-b border-gray-800 fixed w-full z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-chart-line text-blue-500 text-2xl"></i>
+                    <span class="ml-2 text-xl font-bold text-white">KAIRON</span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#features" class="text-gray-300 hover:text-white transition">Features</a>
+                    <a href="#pricing" class="text-gray-300 hover:text-white transition">Pricing</a>
+                    <a href="#contact" class="text-gray-300 hover:text-white transition">Contact</a>
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="showLoginModal()" class="px-4 py-2 text-blue-400 border border-blue-400 rounded-lg hover:bg-blue-400/10 transition">
+                        Login
+                    </button>
+                    <button onclick="showSignupModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                        Sign Up
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-24 pb-16 px-4">
+        <div class="max-w-7xl mx-auto text-center">
+            <div class="fade-in">
+                <i class="fas fa-chart-line text-blue-500 text-6xl mb-6"></i>
+                <h1 class="text-5xl md:text-7xl font-bold text-white mb-6">
+                    Trade Smarter with
+                    <span class="gradient-bg bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500"> KAIRON</span>
+                </h1>
+                <p class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+                    Professional trading signals for Deriv continuous indices. AI-powered analysis with 85%+ accuracy.
+                </p>
+                <div class="flex justify-center space-x-4">
+                    <button onclick="showSignupModal()" class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
+                        Start Trading Now
+                    </button>
+                    <button onclick="scrollToFeatures()" class="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition">
+                        Learn More
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="py-16 px-4 bg-gray-800/30">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Why Choose KAIRON?</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">Professional tools designed for serious traders</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div class="bg-gray-800/50 backdrop-blur-lg rounded-2xl p-6 border border-gray-700 text-center">
+                    <i class="fas fa-bolt text-blue-500 text-4xl mb-4"></i>
+                    <h3 class="text-xl font-semibold text-white mb-2">Real-time Signals</h3>
+                    <p class="text-gray-400">Get instant trading signals with 85%+ accuracy</p>
+                </div>
+                <div class="bg-gray-800/50 backdrop-blur-lg rounded-2xl p-6 border border-gray-700 text-center">
+                    <i class="fas fa-shield-alt text-blue-500 text-4xl mb-4"></i>
+                    <h3 class="text-xl font-semibold text-white mb-2">Anti-Sharing Protection</h3>
+                    <p class="text-gray-400">One device, one license - maximum security</p>
+                </div>
+                <div class="bg-gray-800/50 backdrop-blur-lg rounded-2xl p-6 border border-gray-700 text-center">
+                    <i class="fas fa-chart-line text-blue-500 text-4xl mb-4"></i>
+                    <h3 class="text-xl font-semibold text-white mb-2">Advanced Analytics</h3>
+                    <p class="text-gray-400">Proprietary algorithms for maximum profit</p>
+                </div>
+                <div class="bg-gray-800/50 backdrop-blur-lg rounded-2xl p-6 border border-gray-700 text-center">
+                    <i class="fas fa-clock text-blue-500 text-4xl mb-4"></i>
+                    <h3 class="text-xl font-semibold text-white mb-2">24/7 Market Coverage</h3>
+                    <p class="text-gray-400">Never miss a trading opportunity</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing -->
+    <section id="pricing" class="py-16 px-4">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
+                <p class="text-gray-400">Choose the plan that fits your trading style</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="bg-gray-800 rounded-2xl p-8 border border-gray-700">
+                    <h3 class="text-2xl font-bold text-white mb-2">Basic Trader</h3>
+                    <div class="mb-6">
+                        <span class="text-4xl font-bold text-white">KSh 5,000</span>
+                        <span class="text-gray-400">/month</span>
+                    </div>
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>Real-time signals</li>
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>Email support</li>
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>Basic indicators</li>
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>Digits market access</li>
+                    </ul>
+                    <button onclick="showPaymentModal('basic_monthly', 5000, 'Basic Trader - Monthly')" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
+                        Get Started
+                    </button>
+                </div>
+                <div class="bg-gray-800 rounded-2xl p-8 border-2 border-blue-500 shadow-lg shadow-blue-500/20">
+                    <div class="inline-block px-3 py-1 bg-blue-600 text-white text-sm rounded-full mb-4">Most Popular</div>
+                    <h3 class="text-2xl font-bold text-white mb-2">Pro Trader</h3>
+                    <div class="mb-6">
+                        <span class="text-4xl font-bold text-white">KSh 10,000</span>
+                        <span class="text-gray-400">/month</span>
+                    </div>
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>Advanced signals</li>
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>Priority support</li>
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>Multiple timeframes</li>
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>Risk management</li>
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>Rise/Fall + Digits markets</li>
+                    </ul>
+                    <button onclick="showPaymentModal('pro_monthly', 10000, 'Pro Trader - Monthly')" class="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition">
+                        Get Started
+                    </button>
+                </div>
+                <div class="bg-gray-800 rounded-2xl p-8 border border-gray-700">
+                    <h3 class="text-2xl font-bold text-white mb-2">Enterprise</h3>
+                    <div class="mb-6">
+                        <span class="text-4xl font-bold text-white">KSh 30,000</span>
+                        <span class="text-gray-400">/month</span>
+                    </div>
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>Custom strategies</li>
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>Dedicated support</li>
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>API access</li>
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>White-label option</li>
+                        <li class="flex items-center text-gray-300"><i class="fas fa-check-circle text-green-500 mr-2"></i>All markets + VIP signals</li>
+                    </ul>
+                    <button onclick="showPaymentModal('enterprise_monthly', 30000, 'Enterprise - Monthly')" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
+                        Contact Sales
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-2xl p-8 max-w-md w-full mx-4 fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">Login to KAIRON</h2>
+                <button onclick="closeLoginModal()" class="text-gray-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                    <input type="email" id="loginEmail" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                    <input type="password" id="loginPassword" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">Login</button>
+            </form>
+            <p class="text-center text-gray-400 mt-4">Don't have an account? <button onclick="switchToSignup()" class="text-blue-400 hover:underline">Sign up</button></p>
+        </div>
+    </div>
+
+    <!-- Signup Modal -->
+    <div id="signupModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-2xl p-8 max-w-md w-full mx-4 fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">Create Account</h2>
+                <button onclick="closeSignupModal()" class="text-gray-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <form id="signupForm" onsubmit="handleSignup(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
+                    <input type="text" id="signupName" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                    <input type="email" id="signupEmail" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Phone (M-Pesa)</label>
+                    <input type="tel" id="signupPhone" placeholder="0712345678" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                    <input type="password" id="signupPassword" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">Sign Up</button>
+            </form>
+            <p class="text-center text-gray-400 mt-4">Already have an account? <button onclick="switchToLogin()" class="text-blue-400 hover:underline">Login</button></p>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-2xl p-8 max-w-md w-full mx-4 fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">Complete Payment</h2>
+                <button onclick="closePaymentModal()" class="text-gray-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div id="paymentContent"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
