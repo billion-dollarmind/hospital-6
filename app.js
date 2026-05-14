@@ -1,4 +1,4 @@
-// ============ KAIRON SYSTEMS - COMPLETE WITH LDP & THRESHOLD ANALYSIS ============
+// ============ KAIRON SYSTEMS - WITH YOUR DERIV APP ID & LIVE NEWS ============
 // Configuration
 const CONFIG = {
     currentMarket: 'R_100',
@@ -23,8 +23,12 @@ const CONFIG = {
     selectedUnderThreshold: null
 };
 
-// Deriv WebSocket URL
-const DERIV_WS_URL = 'wss://ws.binaryws.com/websockets/v3?app_id=1089';
+// YOUR DERIV APP ID - Integrated
+const DERIV_APP_ID = '3301jaeZWyGCapwrS0scH';
+const DERIV_WS_URL = `wss://ws.binaryws.com/websockets/v3?app_id=${DERIV_APP_ID}`;
+
+// Marketaux News API (Free, no token required)
+const NEWS_API_URL = 'https://api.marketaux.com/v1/news/all?limit=15';
 
 // Chart instances
 let priceChart = null;
@@ -48,15 +52,104 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ============ INITIALIZATION ============
 async function initializeApp() {
-    console.log('KAIRON Systems Initialized');
+    console.log('KAIRON Systems Initialized with App ID:', DERIV_APP_ID);
     initializeMarkets();
     initializeCharts();
     initializeVoice();
     setupEventListeners();
-    loadNews();
     loadEconomicCalendar();
     loadCommodities();
+    await loadLiveNews(); // Load live news with images
     await connectDerivWebSocket();
+}
+
+// ============ LIVE NEWS WITH IMAGES ============
+async function loadLiveNews() {
+    const newsFeed = document.getElementById('newsFeed');
+    if (!newsFeed) return;
+    
+    // Show loading state
+    newsFeed.innerHTML = `
+        <div class="animate-pulse space-y-3">
+            <div class="h-24 bg-gray-700 rounded"></div>
+            <div class="h-24 bg-gray-700 rounded"></div>
+            <div class="h-24 bg-gray-700 rounded"></div>
+        </div>
+    `;
+    
+    try {
+        // Fetch live news from Marketaux (free, no token needed)
+        const response = await axios.get(NEWS_API_URL, {
+            params: {
+                limit: 15,
+                language: 'en'
+            },
+            timeout: 10000
+        });
+        
+        if (response.data && response.data.data && response.data.data.length > 0) {
+            const news = response.data.data;
+            
+            newsFeed.innerHTML = news.map(item => `
+                <div class="news-card bg-gray-800/30 rounded-lg p-3 transition-all cursor-pointer hover:bg-gray-800/50" onclick="window.open('${item.url || '#'}', '_blank')">
+                    <div class="flex gap-3">
+                        ${item.image_url ? `<img src="${item.image_url}" alt="${item.title}" class="news-image" onerror="this.style.display='none'">` : ''}
+                        <div class="flex-1">
+                            <div class="flex justify-between items-start mb-1">
+                                <span class="text-xs font-semibold text-purple-400">${item.source || 'Market News'}</span>
+                                <span class="text-xs text-gray-500">${item.published_at ? new Date(item.published_at).toLocaleTimeString() : 'Just now'}</span>
+                            </div>
+                            <p class="text-xs md:text-sm font-semibold text-white mb-1 line-clamp-2">${item.title}</p>
+                            <p class="text-[10px] md:text-xs text-gray-400 line-clamp-2">${item.description || ''}</p>
+                            <div class="flex gap-2 mt-2">
+                                <span class="text-[10px] px-2 py-0.5 rounded bg-blue-900/50 text-blue-400">${item.sector || 'Market'}</span>
+                                ${item.sentiment ? `<span class="text-[10px] px-2 py-0.5 rounded ${item.sentiment_score > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}">${item.sentiment}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            console.log(`Loaded ${news.length} live news articles`);
+        } else {
+            // Fallback to demo news if API returns no data
+            loadDemoNews();
+        }
+    } catch (error) {
+        console.error('Failed to fetch live news:', error);
+        // Fallback to demo news
+        loadDemoNews();
+    }
+}
+
+function loadDemoNews() {
+    const newsFeed = document.getElementById('newsFeed');
+    if (!newsFeed) return;
+    
+    const demoNews = [
+        { title: 'Federal Reserve signals rate cut in September', source: 'Bloomberg', impact: 'high', time: '2h ago', image: null },
+        { title: 'Gold hits all-time high above $2,400', source: 'Reuters', impact: 'high', time: '3h ago', image: null },
+        { title: 'Oil prices surge 5% on Middle East tensions', source: 'CNBC', impact: 'medium', time: '5h ago', image: null },
+        { title: 'Bitcoin volatility expected ahead of halving', source: 'CoinDesk', impact: 'medium', time: '6h ago', image: null },
+        { title: 'European markets close higher on tech rally', source: 'FT', impact: 'low', time: '8h ago', image: null }
+    ];
+    
+    newsFeed.innerHTML = demoNews.map(item => `
+        <div class="news-card bg-gray-800/30 rounded-lg p-3 transition-all">
+            <div class="flex gap-3">
+                <div class="flex-1">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-xs font-semibold text-purple-400">${item.source}</span>
+                        <span class="text-xs text-gray-500">${item.time}</span>
+                    </div>
+                    <p class="text-xs md:text-sm font-semibold text-white">${item.title}</p>
+                    <div class="mt-2">
+                        <span class="text-[10px] px-2 py-0.5 rounded ${item.impact === 'high' ? 'bg-red-900/50 text-red-400' : item.impact === 'medium' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-gray-700 text-gray-400'}">${item.impact.toUpperCase()} IMPACT</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
 }
 
 // ============ ALL VOLATILITY MARKETS ============
@@ -153,13 +246,11 @@ function updateLDP() {
     const ldpGrid = document.getElementById('ldpGrid');
     if (!ldpGrid) return;
     
-    // Get last 20 digits (or fewer if not enough data)
     const last20 = CONFIG.digitsHistory.slice(-20).reverse();
     const currentLastDigit = last20.length > 0 ? last20[0] : '-';
     
     document.getElementById('currentLastDigit').innerHTML = currentLastDigit !== '-' ? currentLastDigit : '---';
     
-    // Create grid of 20 digits
     let html = '';
     for (let i = 0; i < 20; i++) {
         const digit = last20[i];
@@ -176,7 +267,6 @@ function updateLDP() {
 function updateThresholdStats() {
     const total = CONFIG.digitsHistory.length || 1;
     
-    // Over thresholds (0 through 6)
     for (let i = 0; i <= 6; i++) {
         const count = CONFIG.digitsHistory.filter(d => d > i).length;
         const percent = (count / total) * 100;
@@ -184,7 +274,6 @@ function updateThresholdStats() {
         if (element) element.textContent = `${percent.toFixed(1)}%`;
     }
     
-    // Under thresholds (3 through 9)
     for (let i = 3; i <= 9; i++) {
         const count = CONFIG.digitsHistory.filter(d => d < i).length;
         const percent = (count / total) * 100;
@@ -249,7 +338,6 @@ function analyzeOverUnderThreshold() {
         `;
         signalDiv.classList.remove('hidden');
         
-        // Voice alert for threshold signals
         const now = Date.now();
         if (now - CONFIG.lastVoiceTime > CONFIG.voiceCooldown) {
             speak(`${signal} signal with ${Math.round(confidence)} percent confidence based on threshold analysis`);
@@ -271,7 +359,7 @@ async function connectDerivWebSocket() {
         CONFIG.ws.onopen = async () => {
             CONFIG.isConnected = true;
             updateConnectionStatus('Connected to Deriv', true);
-            console.log('Connected to Deriv WebSocket');
+            console.log('Connected to Deriv WebSocket with App ID:', DERIV_APP_ID);
             await subscribeToTicks();
             await fetchHistoricalData();
             resolve();
@@ -342,7 +430,6 @@ async function fetchHistoricalData() {
             const prices = response.history.prices;
             CONFIG.priceData = prices.map(p => parseFloat(p));
             
-            // Extract digits from prices
             CONFIG.digitsHistory = [];
             CONFIG.priceData.forEach(price => {
                 const priceStr = price.toString();
@@ -365,7 +452,7 @@ async function fetchHistoricalData() {
             updateThresholdStats();
             
             console.log(`Fetched ${CONFIG.priceData.length} ticks for ${CONFIG.currentMarket}`);
-            showNotification(`Loaded ${CONFIG.priceData.length} ticks for ${CONFIG.currentMarket}`, 'success');
+            showNotification(`Loaded ${CONFIG.priceData.length} ticks from Deriv`, 'success');
         }
     } catch (error) {
         console.error('Failed to fetch historical data:', error);
@@ -465,7 +552,6 @@ function processLiveTick(tick) {
     
     analyzeSignals(price, digit);
     
-    // Re-analyze threshold if one is selected
     if (CONFIG.selectedOverThreshold !== null || CONFIG.selectedUnderThreshold !== null) {
         analyzeOverUnderThreshold();
     }
@@ -739,7 +825,7 @@ function playAlertSound() {
 
 // ============ SIMULATION FALLBACK ============
 function startSimulation() {
-    console.log('Starting simulation mode');
+    console.log('Starting simulation mode as fallback');
     let price = 100;
     setInterval(() => {
         if (!CONFIG.isConnected || CONFIG.priceData.length === 0) {
@@ -750,30 +836,14 @@ function startSimulation() {
     }, 2000);
 }
 
-// ============ NEWS & DATA ============
-function loadNews() {
-    const news = [
-        { title: 'Federal Reserve signals rate cut in September', impact: 'high', time: '2h ago', source: 'Bloomberg' },
-        { title: 'Gold hits all-time high above $2,400', impact: 'high', time: '3h ago', source: 'Reuters' },
-        { title: 'Oil prices surge 5% on Middle East tensions', impact: 'medium', time: '5h ago', source: 'CNBC' },
-        { title: 'Bitcoin volatility expected ahead of halving', impact: 'medium', time: '6h ago', source: 'CoinDesk' },
-        { title: 'European markets close higher on tech rally', impact: 'low', time: '8h ago', source: 'FT' }
-    ];
-    
-    const newsFeed = document.getElementById('newsFeed');
-    if (newsFeed) {
-        newsFeed.innerHTML = news.map(item => `
-            <div class="bg-gray-800/30 rounded-lg p-2"><div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-purple-400">${item.source}</span><span class="text-xs text-gray-500">${item.time}</span></div><p class="text-xs text-white">${item.title}</p><div class="mt-1"><span class="text-xs px-1.5 py-0.5 rounded ${item.impact === 'high' ? 'bg-red-900/50 text-red-400' : 'bg-yellow-900/50 text-yellow-400'}">${item.impact.toUpperCase()}</span></div></div>
-        `).join('');
-    }
-}
-
+// ============ ECONOMIC DATA ============
 function loadEconomicCalendar() {
     const events = [
         { time: '10:30 AM', currency: 'USD', event: 'Fed Chair Powell Speech', impact: 'high' },
         { time: '08:30 AM', currency: 'EUR', event: 'ECB Interest Rate Decision', impact: 'high' },
         { time: '04:30 AM', currency: 'JPY', event: 'Japan CPI Data', impact: 'medium' },
-        { time: '02:00 PM', currency: 'GBP', event: 'UK GDP Report', impact: 'high' }
+        { time: '02:00 PM', currency: 'GBP', event: 'UK GDP Report', impact: 'high' },
+        { time: '12:00 PM', currency: 'CAD', event: 'Canada Employment Change', impact: 'medium' }
     ];
     
     const calendar = document.getElementById('economicCalendar');
@@ -790,6 +860,7 @@ function loadCommodities() {
         { name: 'Silver', price: 28.75, change: '+0.8%', isUp: true },
         { name: 'Crude Oil', price: 85.30, change: '-0.5%', isUp: false },
         { name: 'Bitcoin', price: 62450, change: '+2.3%', isUp: true },
+        { name: 'Ethereum', price: 3450, change: '+1.5%', isUp: true },
         { name: 'S&P 500', price: 5120, change: '+0.3%', isUp: true }
     ];
     
