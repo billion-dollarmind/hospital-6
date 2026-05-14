@@ -1,171 +1,79 @@
-// API Configuration
-const API_URL = 'http://localhost:5000/api'; // Change to your backend URL when deployed
+// ============ CONFIGURATION ============
+const CONFIG = {
+    markets: [
+        { id: 'R_10', name: 'Volatility 10', type: '1s', icon: 'fa-bolt' },
+        { id: 'R_10_index', name: 'Volatility 10 Index', type: 'index', icon: 'fa-chart-line' },
+        { id: 'R_15', name: 'Volatility 15', type: '1s', icon: 'fa-bolt' },
+        { id: 'R_15_index', name: 'Volatility 15 Index', type: 'index', icon: 'fa-chart-line' },
+        { id: 'R_25', name: 'Volatility 25', type: '1s', icon: 'fa-bolt' },
+        { id: 'R_25_index', name: 'Volatility 25 Index', type: 'index', icon: 'fa-chart-line' },
+        { id: 'R_50', name: 'Volatility 50', type: '1s', icon: 'fa-bolt' },
+        { id: 'R_50_index', name: 'Volatility 50 Index', type: 'index', icon: 'fa-chart-line' },
+        { id: 'R_75', name: 'Volatility 75', type: '1s', icon: 'fa-bolt' },
+        { id: 'R_75_index', name: 'Volatility 75 Index', type: 'index', icon: 'fa-chart-line' },
+        { id: 'R_100', name: 'Volatility 100', type: '1s', icon: 'fa-bolt' },
+        { id: 'R_100_index', name: 'Volatility 100 Index', type: 'index', icon: 'fa-chart-line' }
+    ],
+    digitsHistory: [],
+    maxHistory: 100,
+    currentMarket: 'R_100',
+    voiceEnabled: true,
+    voiceGender: 'male',
+    wsConnection: null,
+    priceChart: null,
+    digitsChart: null,
+    signalHistory: [],
+    priceData: [],
+    digitsData: Array(10).fill(0)
+};
 
-// Global variables
-let priceChart = null;
-let historicalPrices = [];
-let signalHistory = [];
-let sessionTimer = null;
-let sessionStart = null;
-
-// Check authentication on page load
+// ============ INITIALIZATION ============
 document.addEventListener('DOMContentLoaded', () => {
-    const token = localStorage.getItem('token');
-    const currentPage = window.location.pathname;
-    
-    if (currentPage.includes('dashboard.html')) {
-        if (!token) {
-            window.location.href = 'index.html';
-        } else {
-            loadDashboard();
-            startSessionTimer();
-            startAutoRefresh();
-        }
-    }
+    initializeMarkets();
+    initializeCharts();
+    initializeVoice();
+    initializeWebSocket();
+    startMarketSimulation();
+    loadNews();
+    loadEconomicCalendar();
+    loadCommodities();
+    setupEventListeners();
+    startMatrixEffect();
 });
 
-// ============ AUTHENTICATION FUNCTIONS ============
-
-async function handleLogin(event) {
-    event.preventDefault();
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
+// ============ MARKET INITIALIZATION ============
+function initializeMarkets() {
+    const marketGrid = document.getElementById('marketGrid');
+    marketGrid.innerHTML = CONFIG.markets.map(market => `
+        <div class="market-card glass-card rounded-xl p-3 text-center transition ${CONFIG.currentMarket === market.id ? 'active' : ''}" data-market="${market.id}">
+            <i class="fas ${market.icon} text-2xl mb-1 ${CONFIG.currentMarket === market.id ? 'text-purple-400' : 'text-gray-400'}"></i>
+            <p class="text-xs font-semibold">${market.name}</p>
+            <p class="text-xs text-gray-500">${market.type}</p>
+        </div>
+    `).join('');
     
-    try {
-        const response = await axios.post(`${API_URL}/auth/login`, { email, password });
-        
-        if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
-            
-            showToast('Login successful! Redirecting...', 'success');
-            setTimeout(() => {
-                window.location.href = 'dashboard.html';
-            }, 1000);
-        }
-    } catch (error) {
-        if (error.response?.data?.error === 'SESSION_TERMINATED') {
-            showToast('Session terminated. Please purchase a new license.', 'error');
-        } else {
-            showToast(error.response?.data?.error || 'Login failed', 'error');
-        }
-    }
-}
-
-async function handleSignup(event) {
-    event.preventDefault();
-    const name = document.getElementById('signupName').value;
-    const email = document.getElementById('signupEmail').value;
-    const phone = document.getElementById('signupPhone').value;
-    const password = document.getElementById('signupPassword').value;
-    
-    try {
-        const response = await axios.post(`${API_URL}/auth/signup`, {
-            fullName: name,
-            email,
-            phone,
-            password
+    document.querySelectorAll('.market-card').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.market-card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            CONFIG.currentMarket = card.dataset.market;
+            resetAnalysis();
         });
-        
-        showToast('Account created! Please login.', 'success');
-        closeSignupModal();
-        showLoginModal();
-    } catch (error) {
-        showToast(error.response?.data?.error || 'Signup failed', 'error');
-    }
+    });
 }
 
-async function logout() {
-    try {
-        const token = localStorage.getItem('token');
-        if (token) {
-            await axios.post(`${API_URL}/auth/logout`, {}, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-        }
-    } catch (error) {
-        console.error('Logout error:', error);
-    }
-    
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = 'index.html';
-}
-
-// ============ DASHBOARD FUNCTIONS ============
-
-async function loadDashboard() {
-    try {
-        const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        
-        // Load performance stats
-        const performance = await axios.get(`${API_URL}/trading/performance`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        document.getElementById('winRate').innerText = `${Math.round(performance.data.win_rate || 0)}%`;
-        document.getElementById('successfulTrades').innerText = performance.data.successful_signals || 0;
-        document.getElementById('totalSignals').innerText = performance.data.total_signals || 0;
-        
-        // Load subscription info
-        const subscriptionStatus = await axios.get(`${API_URL}/auth/subscription-status`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        const subInfo = document.getElementById('subscriptionInfo');
-        if (subscriptionStatus.data.hasActiveSubscription) {
-            subInfo.innerHTML = '<i class="fas fa-check-circle text-green-400 mr-1"></i> Active until Dec 31, 2024';
-        } else {
-            subInfo.innerHTML = '<i class="fas fa-exclamation-triangle text-yellow-400 mr-1"></i> No active subscription';
-        }
-        
-        // Load historical data for chart
-        await loadHistoricalData();
-        
-    } catch (error) {
-        if (error.response?.status === 401) {
-            showToast('Session expired. Please login again.', 'error');
-            setTimeout(() => logout(), 2000);
-        }
-    }
-}
-
-async function loadHistoricalData() {
-    const token = localStorage.getItem('token');
-    const symbol = document.getElementById('symbol').value;
-    
-    try {
-        const response = await axios.post(`${API_URL}/trading/historical`, 
-            { symbol, count: 50 },
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
-        
-        historicalPrices = response.data.data;
-        updateChart();
-        
-        document.getElementById('lastUpdate').innerHTML = `Last updated: ${new Date().toLocaleTimeString()}`;
-    } catch (error) {
-        console.error('Failed to load historical data:', error);
-    }
-}
-
-function updateChart() {
-    const ctx = document.getElementById('priceChart').getContext('2d');
-    
-    if (priceChart) {
-        priceChart.destroy();
-    }
-    
-    priceChart = new Chart(ctx, {
+// ============ CHART INITIALIZATION ============
+function initializeCharts() {
+    const priceCtx = document.getElementById('priceChart').getContext('2d');
+    CONFIG.priceChart = new Chart(priceCtx, {
         type: 'line',
         data: {
-            labels: historicalPrices.map((_, i) => i),
+            labels: [],
             datasets: [{
                 label: 'Price',
-                data: historicalPrices.map(p => p.price),
-                borderColor: '#3B82F6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                data: [],
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
                 tension: 0.4,
                 fill: true
             }]
@@ -182,311 +90,550 @@ function updateChart() {
             }
         }
     });
-}
-
-async function getSignal() {
-    const token = localStorage.getItem('token');
-    const symbol = document.getElementById('symbol').value;
-    const marketType = document.getElementById('marketType').value;
-    const btn = document.getElementById('getSignalBtn');
     
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Analyzing...';
-    
-    try {
-        const response = await axios.post(`${API_URL}/trading/signal`,
-            { symbol, market: marketType },
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
-        
-        displaySignal(response.data);
-        
-        // Add to history
-        if (response.data.hasSignal) {
-            addToHistory(response.data);
+    const digitsCtx = document.getElementById('digitsDonut').getContext('2d');
+    CONFIG.digitsChart = new Chart(digitsCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+            datasets: [{
+                data: CONFIG.digitsData,
+                backgroundColor: [
+                    '#ef4444', '#f59e0b', '#eab308', '#84cc16', '#10b981',
+                    '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#ec4899'
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#9CA3AF', font: { size: 10 } } }
+            }
         }
-        
-        // Refresh chart after signal
-        await loadHistoricalData();
-        
-    } catch (error) {
-        if (error.response?.status === 401) {
-            showToast('Session expired. Please login again.', 'error');
-            setTimeout(() => logout(), 2000);
-        } else {
-            showToast(error.response?.data?.error || 'Failed to get signal', 'error');
-        }
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-chart-line mr-2"></i>Get Signal';
-    }
+    });
 }
 
-function displaySignal(data) {
-    const signalDiv = document.getElementById('signalDisplay');
+// ============ VOICE SYSTEM ============
+function initializeVoice() {
+    const voiceToggle = document.getElementById('voiceToggle');
+    const voiceGender = document.getElementById('voiceGender');
     
-    if (!data.hasSignal) {
-        signalDiv.className = 'mt-6 p-4 rounded-lg border border-gray-600 bg-gray-700/30 text-center';
-        signalDiv.innerHTML = `
-            <i class="fas fa-clock text-yellow-400 text-3xl mb-2"></i>
-            <p class="text-gray-300">No clear signal at this time</p>
-            <p class="text-gray-500 text-sm mt-1">Waiting for better market conditions</p>
-        `;
-        signalDiv.classList.remove('hidden');
-        return;
-    }
+    voiceToggle.addEventListener('click', () => {
+        CONFIG.voiceEnabled = !CONFIG.voiceEnabled;
+        voiceToggle.classList.toggle('active', CONFIG.voiceEnabled);
+        voiceToggle.innerHTML = CONFIG.voiceEnabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+        speak(CONFIG.voiceEnabled ? 'Voice alerts enabled' : 'Voice alerts disabled');
+    });
     
-    const isRise = data.signal === 'RISE';
-    signalDiv.className = `mt-6 p-4 rounded-lg border transition-all ${
-        isRise ? 'bg-green-900/30 border-green-700' : 'bg-red-900/30 border-red-700'
-    }`;
-    
-    signalDiv.innerHTML = `
-        <div class="text-center">
-            <i class="fas ${isRise ? 'fa-arrow-up' : 'fa-arrow-down'} text-4xl ${isRise ? 'text-green-400' : 'text-red-400'} mb-2"></i>
-            <div class="text-2xl font-bold ${isRise ? 'text-green-400' : 'text-red-400'} mb-1">
-                ${data.recommendation || (data.signal === 'RISE' ? 'BUY CALL' : 'BUY PUT')}
-            </div>
-            <div class="text-sm text-gray-300 mb-2">
-                Confidence: ${data.confidence || 75}%
-            </div>
-            ${data.reasons ? `
-                <div class="text-xs text-gray-400 mt-2">
-                    ${data.reasons.map(r => `<span class="inline-block px-2 py-1 bg-gray-700 rounded mr-1 mb-1">${r}</span>`).join('')}
-                </div>
-            ` : ''}
-            <div class="text-xs text-gray-500 mt-3">
-                Price: ${data.currentPrice} | ${new Date(data.timestamp).toLocaleTimeString()}
-            </div>
-        </div>
-    `;
-    
-    signalDiv.classList.remove('hidden');
-    
-    // Play sound alert (optional)
-    const audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
-    audio.play().catch(e => console.log('Audio not supported'));
+    voiceGender.addEventListener('change', (e) => {
+        CONFIG.voiceGender = e.target.value;
+        speak(`Voice changed to ${CONFIG.voiceGender} voice`);
+    });
 }
 
-function addToHistory(signal) {
-    signalHistory.unshift(signal);
-    if (signalHistory.length > 10) signalHistory.pop();
+function speak(message) {
+    if (!CONFIG.voiceEnabled) return;
     
-    const historyDiv = document.getElementById('signalHistory');
-    
-    if (signalHistory.length === 0) {
-        historyDiv.innerHTML = '<p class="text-gray-500 text-center py-4">No signals yet. Click "Get Signal" to start.</p>';
-        return;
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.voice = CONFIG.voiceGender === 'male' 
+        ? speechSynthesis.getVoices().find(v => v.name.includes('Google UK English Male'))
+        : speechSynthesis.getVoices().find(v => v.name.includes('Google UK English Female'));
+    utterance.rate = 0.9;
+    utterance.pitch = CONFIG.voiceGender === 'male' ? 1 : 1.2;
+    speechSynthesis.speak(utterance);
+}
+
+function playAlertSound() {
+    const audio = document.getElementById('alertSound');
+    audio.currentTime = 0;
+    audio.play().catch(e => console.log('Audio play failed'));
+}
+
+// ============ MARKET ANALYSIS ENGINE ============
+function analyzeDigits(lastDigit) {
+    // Update digits history
+    CONFIG.digitsHistory.push(lastDigit);
+    if (CONFIG.digitsHistory.length > CONFIG.maxHistory) {
+        CONFIG.digitsHistory.shift();
     }
     
-    historyDiv.innerHTML = signalHistory.map(s => `
-        <div class="flex justify-between items-center p-3 bg-gray-700/30 rounded-lg border border-gray-700">
-            <div class="flex items-center">
-                <i class="fas ${s.signal === 'RISE' ? 'fa-arrow-up text-green-400' : 'fa-arrow-down text-red-400'} mr-2"></i>
-                <span class="text-white font-medium">${s.signal === 'RISE' ? 'CALL' : 'PUT'}</span>
+    // Update digit frequency
+    CONFIG.digitsData = Array(10).fill(0);
+    CONFIG.digitsHistory.forEach(d => CONFIG.digitsData[d]++);
+    
+    // Update chart
+    CONFIG.digitsChart.data.datasets[0].data = CONFIG.digitsData;
+    CONFIG.digitsChart.update();
+    
+    // Calculate over/under trends
+    const overDigits = [5, 6, 7, 8, 9];
+    const underDigits = [0, 1, 2, 3, 4];
+    
+    let overCount = CONFIG.digitsHistory.filter(d => overDigits.includes(d)).length;
+    let underCount = CONFIG.digitsHistory.filter(d => underDigits.includes(d)).length;
+    
+    const overPercentage = (overCount / CONFIG.digitsHistory.length) * 100;
+    const underPercentage = (underCount / CONFIG.digitsHistory.length) * 100;
+    
+    document.getElementById('overTrend').textContent = `${overPercentage.toFixed(1)}%`;
+    document.getElementById('underTrend').textContent = `${underPercentage.toFixed(1)}%`;
+    
+    // Find dominant digit
+    const dominantDigit = CONFIG.digitsData.indexOf(Math.max(...CONFIG.digitsData));
+    document.getElementById('dominantDigit').textContent = dominantDigit;
+    
+    // Update digits stats display
+    updateDigitsStats();
+    
+    return { overPercentage, underPercentage, dominantDigit };
+}
+
+function updateDigitsStats() {
+    const statsDiv = document.getElementById('digitsStats');
+    statsDiv.innerHTML = CONFIG.digitsData.map((count, i) => `
+        <div class="flex justify-between items-center">
+            <span class="text-sm">Digit ${i}</span>
+            <div class="flex-1 mx-3 bg-gray-700 rounded-full h-2">
+                <div class="h-2 rounded-full transition-all" style="width: ${(count / CONFIG.maxHistory) * 100}%; background: ${CONFIG.digitsChart.data.datasets[0].backgroundColor[i]}"></div>
             </div>
-            <div class="text-sm text-gray-400">${s.symbol || 'R_100'}</div>
-            <div class="text-sm text-gray-400">${new Date(s.timestamp).toLocaleTimeString()}</div>
-            <div class="text-xs ${s.confidence >= 70 ? 'text-green-400' : 'text-yellow-400'}">${s.confidence || 75}%</div>
+            <span class="text-sm font-semibold">${count}</span>
         </div>
     `).join('');
 }
 
-// ============ PAYMENT FUNCTIONS ============
-
-function showPaymentModal(planId, amount, planName) {
-    const modal = document.getElementById('paymentModal');
-    const content = document.getElementById('paymentContent');
+function analyzePriceAction(currentPrice, historicalPrices) {
+    // Calculate indicators
+    const sma20 = calculateSMA(historicalPrices, 20);
+    const sma50 = calculateSMA(historicalPrices, 50);
+    const rsi = calculateRSI(historicalPrices, 14);
+    const bollinger = calculateBollingerBands(historicalPrices, 20, 2);
     
-    content.innerHTML = `
-        <div class="mb-6 p-4 bg-blue-900/20 rounded-lg border border-blue-700">
-            <div class="flex justify-between mb-2">
-                <span class="text-gray-300">Plan:</span>
-                <span class="text-white font-semibold">${planName}</span>
-            </div>
-            <div class="flex justify-between">
-                <span class="text-gray-300">Amount:</span>
-                <span class="text-2xl font-bold text-blue-400">KSh ${amount.toLocaleString()}</span>
-            </div>
+    // Determine trend
+    let trend = 'neutral';
+    let signal = null;
+    let confidence = 0;
+    let reasons = [];
+    
+    if (sma20 && sma50) {
+        if (sma20 > sma50 * 1.01) {
+            trend = 'bullish';
+            confidence += 30;
+            reasons.push('Golden crossover detected');
+        } else if (sma20 < sma50 * 0.99) {
+            trend = 'bearish';
+            confidence += 30;
+            reasons.push('Death crossover detected');
+        }
+    }
+    
+    // RSI analysis
+    if (rsi && rsi < 30) {
+        signal = 'RISE';
+        confidence += 35;
+        reasons.push('RSI oversold');
+    } else if (rsi && rsi > 70) {
+        signal = 'FALL';
+        confidence += 35;
+        reasons.push('RSI overbought');
+    }
+    
+    // Bollinger Bands analysis
+    if (bollinger && currentPrice <= bollinger.lower) {
+        signal = 'RISE';
+        confidence += 25;
+        reasons.push('Price at lower Bollinger Band');
+    } else if (bollinger && currentPrice >= bollinger.upper) {
+        signal = 'FALL';
+        confidence += 25;
+        reasons.push('Price at upper Bollinger Band');
+    }
+    
+    // Update indicators display
+    updateIndicatorsDisplay({ sma20, sma50, rsi, bollinger, trend });
+    
+    return { signal, confidence, reasons, trend };
+}
+
+function calculateSMA(prices, period) {
+    if (prices.length < period) return null;
+    const sum = prices.slice(-period).reduce((a, b) => a + b, 0);
+    return sum / period;
+}
+
+function calculateRSI(prices, period) {
+    if (prices.length < period + 1) return null;
+    
+    let gains = 0, losses = 0;
+    for (let i = prices.length - period; i < prices.length; i++) {
+        const change = prices[i] - prices[i - 1];
+        if (change >= 0) gains += change;
+        else losses -= change;
+    }
+    
+    const avgGain = gains / period;
+    const avgLoss = losses / period;
+    
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+}
+
+function calculateBollingerBands(prices, period, multiplier) {
+    const sma = calculateSMA(prices, period);
+    if (!sma) return null;
+    
+    const variance = prices.slice(-period).reduce((acc, price) => acc + Math.pow(price - sma, 2), 0) / period;
+    const stdDev = Math.sqrt(variance);
+    
+    return {
+        upper: sma + (stdDev * multiplier),
+        middle: sma,
+        lower: sma - (stdDev * multiplier)
+    };
+}
+
+function updateIndicatorsDisplay(indicators) {
+    const indicatorsDiv = document.getElementById('indicators');
+    indicatorsDiv.innerHTML = `
+        <div class="flex justify-between">
+            <span class="text-sm text-gray-400">SMA 20:</span>
+            <span class="text-sm font-semibold">${indicators.sma20 ? indicators.sma20.toFixed(4) : 'N/A'}</span>
         </div>
-        
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-300 mb-2">M-Pesa Phone Number</label>
-            <div class="relative">
-                <i class="fas fa-phone absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
-                <input type="tel" id="mpesaPhone" placeholder="0712345678" class="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white">
-            </div>
-            <p class="text-xs text-gray-500 mt-1">You will receive an STK Push on this number</p>
+        <div class="flex justify-between">
+            <span class="text-sm text-gray-400">SMA 50:</span>
+            <span class="text-sm font-semibold">${indicators.sma50 ? indicators.sma50.toFixed(4) : 'N/A'}</span>
         </div>
-        
-        <button onclick="initiatePayment('${planId}', ${amount})" class="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition">
-            <i class="fas fa-credit-card mr-2"></i>Pay with M-Pesa
-        </button>
+        <div class="flex justify-between">
+            <span class="text-sm text-gray-400">RSI:</span>
+            <span class="text-sm font-semibold ${indicators.rsi && indicators.rsi > 70 ? 'text-red-400' : indicators.rsi && indicators.rsi < 30 ? 'text-green-400' : 'text-white'}">${indicators.rsi ? indicators.rsi.toFixed(1) : 'N/A'}</span>
+        </div>
+        <div class="flex justify-between">
+            <span class="text-sm text-gray-400">Trend:</span>
+            <span class="text-sm font-semibold ${indicators.trend === 'bullish' ? 'text-green-400' : indicators.trend === 'bearish' ? 'text-red-400' : 'text-yellow-400'}">${indicators.trend.toUpperCase()}</span>
+        </div>
+    `;
+}
+
+function generateSignal() {
+    const lastDigit = CONFIG.digitsHistory[CONFIG.digitsHistory.length - 1];
+    const digitAnalysis = analyzeDigits(lastDigit);
+    const lastPrice = CONFIG.priceData[CONFIG.priceData.length - 1];
+    const priceAnalysis = analyzePriceAction(lastPrice, CONFIG.priceData);
+    
+    let finalSignal = null;
+    let finalConfidence = 0;
+    let marketSuggestion = CONFIG.currentMarket;
+    
+    // Combine digit and price analysis
+    if (priceAnalysis.signal) {
+        finalSignal = priceAnalysis.signal;
+        finalConfidence = priceAnalysis.confidence;
+    } else if (digitAnalysis.overPercentage > 65) {
+        finalSignal = 'OVER 5';
+        finalConfidence = digitAnalysis.overPercentage;
+    } else if (digitAnalysis.underPercentage > 65) {
+        finalSignal = 'UNDER 5';
+        finalConfidence = digitAnalysis.underPercentage;
+    }
+    
+    // Find best performing market (simulated)
+    const bestMarkets = ['R_100', 'R_75', 'R_50'];
+    marketSuggestion = bestMarkets[Math.floor(Math.random() * bestMarkets.length)];
+    
+    if (finalSignal && finalConfidence > 55) {
+        displaySignal(finalSignal, finalConfidence, priceAnalysis.reasons, marketSuggestion);
+        updateSignalStrength(finalConfidence);
+        return true;
+    }
+    
+    return false;
+}
+
+function displaySignal(signal, confidence, reasons, suggestedMarket) {
+    const signalDiv = document.getElementById('currentSignal');
+    const isRise = signal === 'RISE' || signal === 'OVER 5';
+    
+    signalDiv.className = `p-4 rounded-lg text-center transition-all ${isRise ? 'bg-green-900/30 border border-green-500 glow-green' : 'bg-red-900/30 border border-red-500 glow-red'}`;
+    signalDiv.innerHTML = `
+        <div class="signal-pulse">
+            <i class="fas ${isRise ? 'fa-arrow-up' : 'fa-arrow-down'} text-4xl ${isRise ? 'text-green-400' : 'text-red-400'} mb-2"></i>
+            <p class="text-2xl font-bold ${isRise ? 'text-green-400' : 'text-red-400'}">${signal}</p>
+            <p class="text-sm text-gray-300 mt-2">Confidence: ${confidence.toFixed(0)}%</p>
+            <p class="text-xs text-gray-400 mt-1">Best Market: ${suggestedMarket}</p>
+            ${reasons ? `<div class="text-xs text-gray-400 mt-2">${reasons.map(r => `<span class="inline-block px-2 py-1 bg-gray-800 rounded mr-1 mt-1">${r}</span>`).join('')}</div>` : ''}
+        </div>
     `;
     
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    // Voice alert
+    speak(`${signal} signal detected with ${confidence.toFixed(0)} percent confidence. Best market is ${suggestedMarket}`);
+    playAlertSound();
+    
+    // Add to history
+    addToSignalHistory(signal, confidence, suggestedMarket);
 }
 
-async function initiatePayment(planId, amount) {
-    const phone = document.getElementById('mpesaPhone').value;
-    const token = localStorage.getItem('token');
+function addToSignalHistory(signal, confidence, market) {
+    CONFIG.signalHistory.unshift({ signal, confidence, market, time: new Date().toLocaleTimeString() });
+    if (CONFIG.signalHistory.length > 10) CONFIG.signalHistory.pop();
     
-    if (!phone) {
-        showToast('Please enter your M-Pesa phone number', 'error');
-        return;
+    const historyDiv = document.getElementById('signalHistory');
+    historyDiv.innerHTML = CONFIG.signalHistory.map(s => `
+        <div class="flex justify-between items-center p-2 bg-gray-800/50 rounded-lg">
+            <div class="flex items-center">
+                <i class="fas ${s.signal === 'RISE' || s.signal === 'OVER 5' ? 'fa-arrow-up text-green-400' : 'fa-arrow-down text-red-400'} mr-2"></i>
+                <span class="text-sm font-semibold">${s.signal}</span>
+            </div>
+            <span class="text-xs text-gray-400">${s.market}</span>
+            <span class="text-xs text-gray-500">${s.time}</span>
+            <span class="text-xs ${s.confidence > 70 ? 'text-green-400' : 'text-yellow-400'}">${s.confidence.toFixed(0)}%</span>
+        </div>
+    `).join('');
+}
+
+function updateSignalStrength(confidence) {
+    const strengthBar = document.getElementById('signalStrength');
+    const recommendation = document.getElementById('signalRecommendation');
+    
+    strengthBar.style.width = `${confidence}%`;
+    strengthBar.style.background = `linear-gradient(90deg, #667eea, #764ba2)`;
+    
+    if (confidence >= 70) {
+        recommendation.innerHTML = '<span class="text-green-400"><i class="fas fa-check-circle mr-1"></i>STRONG SIGNAL - Consider entering trade</span>';
+    } else if (confidence >= 50) {
+        recommendation.innerHTML = '<span class="text-yellow-400"><i class="fas fa-chart-line mr-1"></i>MODERATE SIGNAL - Monitor closely</span>';
+    } else {
+        recommendation.innerHTML = '<span class="text-gray-400"><i class="fas fa-clock mr-1"></i>WEAK SIGNAL - Wait for confirmation</span>';
     }
-    
-    try {
-        const response = await axios.post(`${API_URL}/payment/initiate`, 
-            { planId, phoneNumber: phone },
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
+}
+
+// ============ MARKET SIMULATION ============
+function startMarketSimulation() {
+    setInterval(() => {
+        const volatility = Math.random() * 2;
+        const lastPrice = CONFIG.priceData[CONFIG.priceData.length - 1] || 100;
+        const change = (Math.random() - 0.5) * volatility;
+        const newPrice = Math.max(0.01, lastPrice + change);
         
-        if (response.data.success) {
-            showToast('STK Push sent! Check your phone and enter PIN', 'success');
-            
-            // Poll for payment status
-            pollPaymentStatus(response.data.checkoutRequestId);
+        CONFIG.priceData.push(newPrice);
+        if (CONFIG.priceData.length > 50) CONFIG.priceData.shift();
+        
+        // Extract digit from price
+        const digit = Math.floor(newPrice) % 10;
+        
+        // Update chart
+        CONFIG.priceChart.data.labels = CONFIG.priceData.map((_, i) => i);
+        CONFIG.priceChart.data.datasets[0].data = CONFIG.priceData;
+        CONFIG.priceChart.update();
+        
+        // Update price display
+        document.getElementById('lastPrice').textContent = newPrice.toFixed(4);
+        document.getElementById('highPrice').textContent = Math.max(...CONFIG.priceData).toFixed(4);
+        document.getElementById('lowPrice').textContent = Math.min(...CONFIG.priceData).toFixed(4);
+        
+        // Analyze digit
+        analyzeDigits(digit);
+        
+        // Generate signal every 15-30 seconds
+        if (Math.random() < 0.15) {
+            generateSignal();
         }
-    } catch (error) {
-        showToast(error.response?.data?.error || 'Payment failed', 'error');
-    }
+    }, 2000);
 }
 
-async function pollPaymentStatus(checkoutId) {
-    const token = localStorage.getItem('token');
-    const interval = setInterval(async () => {
-        try {
-            const response = await axios.get(`${API_URL}/payment/status/${checkoutId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            if (response.data.success && response.data.resultCode === '0') {
-                clearInterval(interval);
-                showToast('Payment successful! Subscription activated.', 'success');
-                closePaymentModal();
-                loadDashboard(); // Refresh dashboard
-            }
-        } catch (error) {
-            // Continue polling
-        }
-    }, 3000);
+// ============ WEB SIMULATION (Instead of actual Deriv API) ============
+function initializeWebSocket() {
+    console.log('Market analysis engine initialized');
+    // In production, connect to Deriv WebSocket here
+}
+
+function resetAnalysis() {
+    CONFIG.digitsHistory = [];
+    CONFIG.digitsData = Array(10).fill(0);
+    CONFIG.priceData = [];
+    speak(`Switched to ${CONFIG.currentMarket} market`);
+}
+
+// ============ NEWS & DATA LOADING ============
+function loadNews() {
+    const news = [
+        { title: 'Federal Reserve signals rate cut in September', impact: 'high', time: '2 hours ago', source: 'Bloomberg' },
+        { title: 'Gold hits all-time high above $2,400', impact: 'high', time: '3 hours ago', source: 'Reuters' },
+        { title: 'Oil prices surge 5% on Middle East tensions', impact: 'medium', time: '5 hours ago', source: 'CNBC' },
+        { title: 'Bitcoin volatility expected ahead of halving event', impact: 'medium', time: '6 hours ago', source: 'CoinDesk' },
+        { title: 'European markets close higher on tech rally', impact: 'low', time: '8 hours ago', source: 'FT' },
+        { title: 'Bank of Japan intervenes to support Yen', impact: 'high', time: '12 hours ago', source: 'Nikkei' },
+        { title: 'US jobless claims fall more than expected', impact: 'high', time: '1 day ago', source: 'WSJ' },
+        { title: 'Crypto market cap surpasses $2.5 trillion', impact: 'medium', time: '1 day ago', source: 'CoinMarketCap' }
+    ];
     
-    // Stop polling after 2 minutes
-    setTimeout(() => clearInterval(interval), 120000);
+    const newsFeed = document.getElementById('newsFeed');
+    newsFeed.innerHTML = news.map(item => `
+        <div class="bg-gray-800/30 rounded-lg p-4 hover:bg-gray-800/50 transition">
+            <div class="flex justify-between mb-2">
+                <span class="text-sm font-semibold text-purple-400">${item.source}</span>
+                <span class="text-xs text-gray-500">${item.time}</span>
+            </div>
+            <p class="text-sm text-white">${item.title}</p>
+            <div class="mt-2 flex items-center">
+                <span class="text-xs px-2 py-1 rounded ${item.impact === 'high' ? 'bg-red-900/50 text-red-400' : item.impact === 'medium' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-gray-700 text-gray-400'}">
+                    ${item.impact.toUpperCase()} IMPACT
+                </span>
+            </div>
+        </div>
+    `).join('');
 }
 
-// ============ UI HELPER FUNCTIONS ============
+function loadEconomicCalendar() {
+    const events = [
+        { time: '10:30 AM', currency: 'USD', event: 'Fed Chair Powell Speech', impact: 'high' },
+        { time: '08:30 AM', currency: 'EUR', event: 'ECB Interest Rate Decision', impact: 'high' },
+        { time: '04:30 AM', currency: 'JPY', event: 'Japan CPI Data', impact: 'medium' },
+        { time: '02:00 PM', currency: 'GBP', event: 'UK GDP Report', impact: 'high' },
+        { time: '12:00 PM', currency: 'CAD', event: 'Canada Employment Change', impact: 'medium' }
+    ];
+    
+    const calendar = document.getElementById('economicCalendar');
+    calendar.innerHTML = events.map(event => `
+        <div class="bg-gray-800/30 rounded-lg p-3">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="text-xs text-gray-400">${event.time}</p>
+                    <p class="text-sm font-semibold">${event.event}</p>
+                    <p class="text-xs text-gray-500">${event.currency}</p>
+                </div>
+                <span class="text-xs px-2 py-1 rounded ${event.impact === 'high' ? 'bg-red-900/50 text-red-400' : 'bg-yellow-900/50 text-yellow-400'}">
+                    ${event.impact.toUpperCase()}
+                </span>
+            </div>
+        </div>
+    `).join('');
+}
 
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `toast px-6 py-3 rounded-lg shadow-lg ${
+function loadCommodities() {
+    const commodities = [
+        { name: 'Gold', price: 2350.50, change: '+1.2%', changeClass: 'text-green-400' },
+        { name: 'Silver', price: 28.75, change: '+0.8%', changeClass: 'text-green-400' },
+        { name: 'Crude Oil', price: 85.30, change: '-0.5%', changeClass: 'text-red-400' },
+        { name: 'Bitcoin', price: 62450, change: '+2.3%', changeClass: 'text-green-400' },
+        { name: 'Ethereum', price: 3450, change: '+1.5%', changeClass: 'text-green-400' },
+        { name: 'S&P 500', price: 5120, change: '+0.3%', changeClass: 'text-green-400' }
+    ];
+    
+    const commoditiesDiv = document.getElementById('commodities');
+    commoditiesDiv.innerHTML = commodities.map(comm => `
+        <div class="flex justify-between items-center p-3 bg-gray-800/30 rounded-lg">
+            <span class="text-sm font-semibold">${comm.name}</span>
+            <span class="text-sm text-white">$${comm.price.toLocaleString()}</span>
+            <span class="text-sm ${comm.changeClass}">${comm.change}</span>
+        </div>
+    `).join('');
+}
+
+// ============ FORM HANDLERS ============
+function setupEventListeners() {
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(`${tabId}Tab`).classList.remove('hidden');
+        });
+    });
+    
+    // MT5 Form submission
+    document.getElementById('mt5Form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const login = document.getElementById('mt5Login').value;
+        const password = document.getElementById('mt5Password').value;
+        const server = document.getElementById('mt5Server').value;
+        
+        if (!login || !password) {
+            showNotification('Please fill in all MT5 credentials', 'error');
+            return;
+        }
+        
+        // Send to WhatsApp
+        const message = `*KAIRON MT5 Bot Request*%0A%0A*Login:* ${login}%0A*Password:* ${password}%0A*Server:* ${server}%0A*Time:* ${new Date().toLocaleString()}`;
+        window.open(`https://wa.me/254799045699?text=${message}`, '_blank');
+        
+        showNotification('Credentials sent! Our team will activate your bot within 24 hours.', 'success');
+        document.getElementById('mt5Form').reset();
+    });
+    
+    // Affiliate link
+    document.getElementById('affiliateLink').addEventListener('click', (e) => {
+        e.preventDefault();
+        window.open('https://track.deriv.com/affiliate', '_blank');
+    });
+    
+    // Manual analysis button
+    document.getElementById('manualAnalysisBtn').addEventListener('click', () => {
+        generateSignal();
+        showNotification('Manual analysis completed', 'info');
+    });
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-20 right-4 px-6 py-3 rounded-lg shadow-lg z-50 transition-all ${
         type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600'
     } text-white`;
-    toast.innerHTML = `
+    notification.innerHTML = `
         <div class="flex items-center">
             <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
             <span>${message}</span>
         </div>
     `;
-    
-    document.body.appendChild(toast);
+    document.body.appendChild(notification);
     
     setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
+        notification.style.opacity = '0';
+        setTimeout(() => notification.remove(), 300);
     }, 5000);
 }
 
-function startSessionTimer() {
-    sessionStart = Date.now();
-    sessionTimer = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-        const hours = Math.floor(elapsed / 3600);
-        const minutes = Math.floor((elapsed % 3600) / 60);
-        const seconds = elapsed % 60;
+// ============ MATRIX EFFECT ============
+function startMatrixEffect() {
+    const canvas = document.getElementById('matrixCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+    const fontSize = 14;
+    const columns = canvas.width / fontSize;
+    const drops = Array(Math.floor(columns)).fill(1);
+    
+    function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        const timerElement = document.getElementById('sessionTime');
-        if (timerElement) {
-            timerElement.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        ctx.fillStyle = '#0f0';
+        ctx.font = `${fontSize}px monospace`;
+        
+        for (let i = 0; i < drops.length; i++) {
+            const text = chars[Math.floor(Math.random() * chars.length)];
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+            
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                drops[i] = 0;
+            }
+            drops[i]++;
         }
-    }, 1000);
-}
-
-function startAutoRefresh() {
-    // Refresh chart every 30 seconds
-    setInterval(() => {
-        if (window.location.pathname.includes('dashboard.html')) {
-            loadHistoricalData();
-        }
-    }, 30000);
-}
-
-function showLoginModal() {
-    document.getElementById('loginModal').classList.remove('hidden');
-    document.getElementById('loginModal').classList.add('flex');
-}
-
-function closeLoginModal() {
-    document.getElementById('loginModal').classList.add('hidden');
-    document.getElementById('loginModal').classList.remove('flex');
-}
-
-function showSignupModal() {
-    document.getElementById('signupModal').classList.remove('hidden');
-    document.getElementById('signupModal').classList.add('flex');
-}
-
-function closeSignupModal() {
-    document.getElementById('signupModal').classList.add('hidden');
-    document.getElementById('signupModal').classList.remove('flex');
-}
-
-function closePaymentModal() {
-    document.getElementById('paymentModal').classList.add('hidden');
-    document.getElementById('paymentModal').classList.remove('flex');
-}
-
-function showUpgradeModal() {
-    const plans = [
-        { id: 'basic_monthly', name: 'Basic Trader', price: 5000 },
-        { id: 'pro_monthly', name: 'Pro Trader', price: 10000 },
-        { id: 'enterprise_monthly', name: 'Enterprise', price: 30000 }
-    ];
+    }
     
-    const content = document.getElementById('paymentContent');
-    content.innerHTML = `
-        <div class="space-y-3">
-            ${plans.map(plan => `
-                <button onclick="showPaymentModal('${plan.id}', ${plan.price}, '${plan.name}')" 
-                        class="w-full p-4 bg-gray-700 hover:bg-gray-600 rounded-lg text-left transition">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <h4 class="font-semibold text-white">${plan.name}</h4>
-                            <p class="text-sm text-gray-400">KSh ${plan.price.toLocaleString()}/month</p>
-                        </div>
-                        <i class="fas fa-chevron-right text-gray-400"></i>
-                    </div>
-                </button>
-            `).join('')}
-        </div>
-    `;
-    
-    document.getElementById('paymentModal').classList.remove('hidden');
-    document.getElementById('paymentModal').classList.add('flex');
+    setInterval(draw, 50);
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
 }
 
-function switchToLogin() {
-    closeSignupModal();
-    showLoginModal();
-}
-
-function switchToSignup() {
-    closeLoginModal();
-    showSignupModal();
-}
-
-function scrollToFeatures() {
-    document.getElementById('features').scrollIntoView({ behavior: 'smooth' });
-}
+// ============ EXPORT FUNCTIONS FOR GLOBAL ACCESS ============
+window.getSignal = generateSignal;
+window.speak = speak;
