@@ -1,5 +1,233 @@
-// ============ KAIRON SYSTEMS - WITH YOUR DERIV APP ID & LIVE NEWS ============
-// Configuration
+// ============ SECURE LOGIN SYSTEM WITH TWO-DEVICE LOCKOUT ============
+(function() {
+    // Configuration
+    const SECRET_UNLOCK_CODE = "42055578";
+    const VALID_EMAIL = "caleborenge08@gmail.com";
+    const VALID_PASSWORD = "@Calekyzfx22";
+    
+    // Storage keys
+    const STORAGE_KEYS = {
+        ACTIVE_DEVICES: "kairon_active_devices",
+        CURRENT_DEVICE: "kairon_device_id",
+        IS_LOCKED: "kairon_is_locked",
+        IS_AUTHENTICATED: "kairon_authenticated"
+    };
+    
+    // Generate unique device ID
+    function getOrCreateDeviceId() {
+        let deviceId = localStorage.getItem(STORAGE_KEYS.CURRENT_DEVICE);
+        if (!deviceId) {
+            deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem(STORAGE_KEYS.CURRENT_DEVICE, deviceId);
+        }
+        return deviceId;
+    }
+    
+    // Get all active devices
+    function getActiveDevices() {
+        const devices = localStorage.getItem(STORAGE_KEYS.ACTIVE_DEVICES);
+        if (!devices) return [];
+        try {
+            return JSON.parse(devices);
+        } catch(e) {
+            return [];
+        }
+    }
+    
+    // Save active devices
+    function saveActiveDevices(devices) {
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_DEVICES, JSON.stringify(devices));
+    }
+    
+    // Register current device
+    function registerDevice() {
+        const deviceId = getOrCreateDeviceId();
+        let devices = getActiveDevices();
+        if (!devices.includes(deviceId)) {
+            devices.push(deviceId);
+            saveActiveDevices(devices);
+        }
+        return devices;
+    }
+    
+    // Check for multi-device violation
+    function checkForMultiDevice() {
+        const devices = getActiveDevices();
+        const uniqueDevices = [...new Set(devices)];
+        if (uniqueDevices.length > 1) {
+            localStorage.setItem(STORAGE_KEYS.IS_LOCKED, "true");
+            localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
+            return true;
+        }
+        return false;
+    }
+    
+    // Unlock system with code
+    function unlockSystem(unlockCode) {
+        if (unlockCode === SECRET_UNLOCK_CODE) {
+            localStorage.setItem(STORAGE_KEYS.IS_LOCKED, "false");
+            const currentDevice = getOrCreateDeviceId();
+            saveActiveDevices([currentDevice]);
+            localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, "true");
+            return true;
+        }
+        return false;
+    }
+    
+    // Login function
+    function login(email, password) {
+        if (email === VALID_EMAIL && password === VALID_PASSWORD) {
+            const isLocked = localStorage.getItem(STORAGE_KEYS.IS_LOCKED) === "true";
+            if (isLocked) {
+                return { success: false, locked: true, message: "System is locked. Please enter unlock code." };
+            }
+            registerDevice();
+            const multiDeviceLock = checkForMultiDevice();
+            if (multiDeviceLock) {
+                return { success: false, locked: true, message: "Multiple devices detected! System locked. Enter unlock code." };
+            }
+            localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, "true");
+            return { success: true };
+        }
+        return { success: false, locked: false, message: "Invalid email or password" };
+    }
+    
+    // Check current authentication status
+    function checkAuthStatus() {
+        const isAuthenticated = localStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true";
+        const isLocked = localStorage.getItem(STORAGE_KEYS.IS_LOCKED) === "true";
+        
+        if (isLocked) {
+            return { authenticated: false, locked: true };
+        }
+        if (isAuthenticated) {
+            const devices = getActiveDevices();
+            if (devices.length > 1) {
+                localStorage.setItem(STORAGE_KEYS.IS_LOCKED, "true");
+                localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
+                return { authenticated: false, locked: true };
+            }
+            return { authenticated: true, locked: false };
+        }
+        return { authenticated: false, locked: false };
+    }
+    
+    // Show login modal
+    function showLoginModal() {
+        const overlay = document.createElement('div');
+        overlay.className = 'login-overlay';
+        overlay.id = 'loginOverlay';
+        overlay.innerHTML = `
+            <div class="login-modal">
+                <h2><i class="fas fa-shield-alt mr-2"></i>KAIRON SECURE ACCESS</h2>
+                <input type="email" id="loginEmail" placeholder="Email Address" autocomplete="off">
+                <input type="password" id="loginPassword" placeholder="Password">
+                <button id="loginBtn">ACCESS PLATFORM</button>
+                <div id="loginError" class="error-message"></div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const result = login(email, password);
+            
+            if (result.success) {
+                overlay.remove();
+                initializeFullApp();
+            } else if (result.locked) {
+                showLockModal();
+                overlay.remove();
+            } else {
+                document.getElementById('loginError').textContent = result.message;
+            }
+        });
+        
+        overlay.querySelectorAll('input').forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('loginBtn').click();
+                }
+            });
+        });
+    }
+    
+    // Show lock/unlock modal
+    function showLockModal() {
+        const overlay = document.createElement('div');
+        overlay.className = 'lock-overlay';
+        overlay.id = 'lockOverlay';
+        overlay.innerHTML = `
+            <div class="lock-modal">
+                <h2><i class="fas fa-lock mr-2"></i>SYSTEM LOCKED</h2>
+                <div class="lock-warning">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    Multiple devices detected! Access blocked for security.
+                </div>
+                <input type="text" id="unlockCode" placeholder="Enter Unlock Code" maxlength="8" autocomplete="off">
+                <button id="unlockBtn">UNLOCK SYSTEM</button>
+                <div id="unlockError" class="error-message"></div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        
+        document.getElementById('unlockBtn').addEventListener('click', () => {
+            const code = document.getElementById('unlockCode').value;
+            if (unlockSystem(code)) {
+                overlay.remove();
+                showLoginModal();
+            } else {
+                document.getElementById('unlockError').textContent = 'Invalid unlock code. Please try again.';
+            }
+        });
+        
+        document.getElementById('unlockCode').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('unlockBtn').click();
+            }
+        });
+    }
+    
+    // Initialize app after successful authentication
+    function initializeFullApp() {
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            const mainContent = document.getElementById('mainContent');
+            if (loader && mainContent) {
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    mainContent.style.display = 'block';
+                    startTradingApp();
+                }, 500);
+            }
+        }, 2000);
+    }
+    
+    // Start authentication flow
+    function initAuth() {
+        const status = checkAuthStatus();
+        if (status.authenticated) {
+            const devices = getActiveDevices();
+            if (devices.length > 1) {
+                localStorage.setItem(STORAGE_KEYS.IS_LOCKED, "true");
+                localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
+                showLockModal();
+            } else {
+                initializeFullApp();
+            }
+        } else if (status.locked) {
+            showLockModal();
+        } else {
+            showLoginModal();
+        }
+    }
+    
+    setTimeout(initAuth, 3000);
+})();
+
+// ============ TRADING APP CODE ============
 const CONFIG = {
     currentMarket: 'R_100',
     currentTradeType: 'rise_fall',
@@ -23,148 +251,37 @@ const CONFIG = {
     selectedUnderThreshold: null
 };
 
-// YOUR DERIV APP ID - Integrated
 const DERIV_APP_ID = '3301jaeZWyGCapwrS0scH';
 const DERIV_WS_URL = `wss://ws.binaryws.com/websockets/v3?app_id=${DERIV_APP_ID}`;
-
-// Marketaux News API (Free, no token required)
 const NEWS_API_URL = 'https://api.marketaux.com/v1/news/all?limit=15';
 
-// Chart instances
 let priceChart = null;
 let digitsChart = null;
 
-// ============ LOADER ============
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        const loader = document.getElementById('loader');
-        const mainContent = document.getElementById('mainContent');
-        if (loader && mainContent) {
-            loader.style.opacity = '0';
-            setTimeout(() => {
-                loader.style.display = 'none';
-                mainContent.style.display = 'block';
-                initializeApp();
-            }, 500);
-        }
-    }, 5000);
-});
-
-// ============ INITIALIZATION ============
-async function initializeApp() {
-    console.log('KAIRON Systems Initialized with App ID:', DERIV_APP_ID);
+function startTradingApp() {
+    console.log('KAIRON Systems Initialized with Security Layer');
     initializeMarkets();
     initializeCharts();
     initializeVoice();
     setupEventListeners();
     loadEconomicCalendar();
     loadCommodities();
-    await loadLiveNews(); // Load live news with images
-    await connectDerivWebSocket();
+    loadLiveNews();
+    connectDerivWebSocket();
 }
 
-// ============ LIVE NEWS WITH IMAGES ============
-async function loadLiveNews() {
-    const newsFeed = document.getElementById('newsFeed');
-    if (!newsFeed) return;
-    
-    // Show loading state
-    newsFeed.innerHTML = `
-        <div class="animate-pulse space-y-3">
-            <div class="h-24 bg-gray-700 rounded"></div>
-            <div class="h-24 bg-gray-700 rounded"></div>
-            <div class="h-24 bg-gray-700 rounded"></div>
-        </div>
-    `;
-    
-    try {
-        // Fetch live news from Marketaux (free, no token needed)
-        const response = await axios.get(NEWS_API_URL, {
-            params: {
-                limit: 15,
-                language: 'en'
-            },
-            timeout: 10000
-        });
-        
-        if (response.data && response.data.data && response.data.data.length > 0) {
-            const news = response.data.data;
-            
-            newsFeed.innerHTML = news.map(item => `
-                <div class="news-card bg-gray-800/30 rounded-lg p-3 transition-all cursor-pointer hover:bg-gray-800/50" onclick="window.open('${item.url || '#'}', '_blank')">
-                    <div class="flex gap-3">
-                        ${item.image_url ? `<img src="${item.image_url}" alt="${item.title}" class="news-image" onerror="this.style.display='none'">` : ''}
-                        <div class="flex-1">
-                            <div class="flex justify-between items-start mb-1">
-                                <span class="text-xs font-semibold text-purple-400">${item.source || 'Market News'}</span>
-                                <span class="text-xs text-gray-500">${item.published_at ? new Date(item.published_at).toLocaleTimeString() : 'Just now'}</span>
-                            </div>
-                            <p class="text-xs md:text-sm font-semibold text-white mb-1 line-clamp-2">${item.title}</p>
-                            <p class="text-[10px] md:text-xs text-gray-400 line-clamp-2">${item.description || ''}</p>
-                            <div class="flex gap-2 mt-2">
-                                <span class="text-[10px] px-2 py-0.5 rounded bg-blue-900/50 text-blue-400">${item.sector || 'Market'}</span>
-                                ${item.sentiment ? `<span class="text-[10px] px-2 py-0.5 rounded ${item.sentiment_score > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}">${item.sentiment}</span>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-            
-            console.log(`Loaded ${news.length} live news articles`);
-        } else {
-            // Fallback to demo news if API returns no data
-            loadDemoNews();
-        }
-    } catch (error) {
-        console.error('Failed to fetch live news:', error);
-        // Fallback to demo news
-        loadDemoNews();
-    }
-}
-
-function loadDemoNews() {
-    const newsFeed = document.getElementById('newsFeed');
-    if (!newsFeed) return;
-    
-    const demoNews = [
-        { title: 'Federal Reserve signals rate cut in September', source: 'Bloomberg', impact: 'high', time: '2h ago', image: null },
-        { title: 'Gold hits all-time high above $2,400', source: 'Reuters', impact: 'high', time: '3h ago', image: null },
-        { title: 'Oil prices surge 5% on Middle East tensions', source: 'CNBC', impact: 'medium', time: '5h ago', image: null },
-        { title: 'Bitcoin volatility expected ahead of halving', source: 'CoinDesk', impact: 'medium', time: '6h ago', image: null },
-        { title: 'European markets close higher on tech rally', source: 'FT', impact: 'low', time: '8h ago', image: null }
-    ];
-    
-    newsFeed.innerHTML = demoNews.map(item => `
-        <div class="news-card bg-gray-800/30 rounded-lg p-3 transition-all">
-            <div class="flex gap-3">
-                <div class="flex-1">
-                    <div class="flex justify-between items-start mb-1">
-                        <span class="text-xs font-semibold text-purple-400">${item.source}</span>
-                        <span class="text-xs text-gray-500">${item.time}</span>
-                    </div>
-                    <p class="text-xs md:text-sm font-semibold text-white">${item.title}</p>
-                    <div class="mt-2">
-                        <span class="text-[10px] px-2 py-0.5 rounded ${item.impact === 'high' ? 'bg-red-900/50 text-red-400' : item.impact === 'medium' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-gray-700 text-gray-400'}">${item.impact.toUpperCase()} IMPACT</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-// ============ ALL VOLATILITY MARKETS ============
-function initializeMarkets() {
+async function initializeMarkets() {
     const markets = [
-        { id: 'R_10', name: 'Vol 10 (1s)', icon: 'fa-bolt', type: '1s' },
-        { id: 'R_25', name: 'Vol 25 (1s)', icon: 'fa-bolt', type: '1s' },
-        { id: 'R_50', name: 'Vol 50 (1s)', icon: 'fa-bolt', type: '1s' },
-        { id: 'R_75', name: 'Vol 75 (1s)', icon: 'fa-bolt', type: '1s' },
-        { id: 'R_100', name: 'Vol 100 (1s)', icon: 'fa-bolt', type: '1s' },
-        { id: '1HZ10V', name: 'Vol 10 (Index)', icon: 'fa-chart-line', type: 'index' },
-        { id: '1HZ25V', name: 'Vol 25 (Index)', icon: 'fa-chart-line', type: 'index' },
-        { id: '1HZ50V', name: 'Vol 50 (Index)', icon: 'fa-chart-line', type: 'index' },
-        { id: '1HZ75V', name: 'Vol 75 (Index)', icon: 'fa-chart-line', type: 'index' },
-        { id: '1HZ100V', name: 'Vol 100 (Index)', icon: 'fa-chart-line', type: 'index' }
+        { id: 'R_10', name: 'Vol 10 (1s)', icon: 'fa-bolt' },
+        { id: 'R_25', name: 'Vol 25 (1s)', icon: 'fa-bolt' },
+        { id: 'R_50', name: 'Vol 50 (1s)', icon: 'fa-bolt' },
+        { id: 'R_75', name: 'Vol 75 (1s)', icon: 'fa-bolt' },
+        { id: 'R_100', name: 'Vol 100 (1s)', icon: 'fa-bolt' },
+        { id: '1HZ10V', name: 'Vol 10 (Index)', icon: 'fa-chart-line' },
+        { id: '1HZ25V', name: 'Vol 25 (Index)', icon: 'fa-chart-line' },
+        { id: '1HZ50V', name: 'Vol 50 (Index)', icon: 'fa-chart-line' },
+        { id: '1HZ75V', name: 'Vol 75 (Index)', icon: 'fa-chart-line' },
+        { id: '1HZ100V', name: 'Vol 100 (Index)', icon: 'fa-chart-line' }
     ];
     
     const marketGrid = document.getElementById('marketGrid');
@@ -179,16 +296,14 @@ function initializeMarkets() {
             btn.addEventListener('click', async () => {
                 document.querySelectorAll('.market-btn').forEach(b => b.classList.remove('active', 'bg-gradient-to-r', 'from-blue-600', 'to-purple-600'));
                 btn.classList.add('active', 'bg-gradient-to-r', 'from-blue-600', 'to-purple-600');
-                const newMarket = btn.dataset.market;
-                CONFIG.currentMarket = newMarket;
-                document.getElementById('currentMarketDisplay').innerText = newMarket;
-                showNotification(`Switched to ${newMarket}`, 'info');
+                CONFIG.currentMarket = btn.dataset.market;
+                document.getElementById('currentMarketDisplay').innerText = CONFIG.currentMarket;
+                showNotification(`Switched to ${CONFIG.currentMarket}`, 'info');
                 await fetchHistoricalData();
             });
         });
     }
     
-    // Trading type buttons
     document.querySelectorAll('.trade-type-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.trade-type-btn').forEach(b => b.classList.remove('active'));
@@ -198,7 +313,6 @@ function initializeMarkets() {
         });
     });
     
-    // Tick selector
     const tickSelector = document.getElementById('tickSelector');
     if (tickSelector) {
         tickSelector.addEventListener('change', async (e) => {
@@ -208,7 +322,6 @@ function initializeMarkets() {
         });
     }
     
-    // Refresh button
     const refreshBtn = document.getElementById('refreshDataBtn');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', async () => {
@@ -217,7 +330,6 @@ function initializeMarkets() {
         });
     }
     
-    // Threshold click handlers
     document.querySelectorAll('[data-over]').forEach(el => {
         el.addEventListener('click', () => {
             const threshold = parseInt(el.dataset.over);
@@ -241,39 +353,29 @@ function initializeMarkets() {
     });
 }
 
-// ============ LDP UPDATE ============
 function updateLDP() {
     const ldpGrid = document.getElementById('ldpGrid');
     if (!ldpGrid) return;
-    
     const last20 = CONFIG.digitsHistory.slice(-20).reverse();
     const currentLastDigit = last20.length > 0 ? last20[0] : '-';
-    
     document.getElementById('currentLastDigit').innerHTML = currentLastDigit !== '-' ? currentLastDigit : '---';
-    
     let html = '';
     for (let i = 0; i < 20; i++) {
         const digit = last20[i];
-        if (digit !== undefined) {
-            html += `<div class="ldp-digit ldp-digit-${digit}">${digit}</div>`;
-        } else {
-            html += `<div class="ldp-digit bg-gray-700">-</div>`;
-        }
+        if (digit !== undefined) html += `<div class="ldp-digit ldp-digit-${digit}">${digit}</div>`;
+        else html += `<div class="ldp-digit bg-gray-700">-</div>`;
     }
     ldpGrid.innerHTML = html;
 }
 
-// ============ THRESHOLD ANALYSIS ============
 function updateThresholdStats() {
     const total = CONFIG.digitsHistory.length || 1;
-    
     for (let i = 0; i <= 6; i++) {
         const count = CONFIG.digitsHistory.filter(d => d > i).length;
         const percent = (count / total) * 100;
         const element = document.getElementById(`over${i}Percent`);
         if (element) element.textContent = `${percent.toFixed(1)}%`;
     }
-    
     for (let i = 3; i <= 9; i++) {
         const count = CONFIG.digitsHistory.filter(d => d < i).length;
         const percent = (count / total) * 100;
@@ -285,7 +387,6 @@ function updateThresholdStats() {
 function analyzeOverUnderThreshold() {
     const signalDiv = document.getElementById('thresholdSignal');
     if (!signalDiv) return;
-    
     const total = CONFIG.digitsHistory.length || 1;
     let signal = null;
     let confidence = 0;
@@ -297,85 +398,52 @@ function analyzeOverUnderThreshold() {
         const percent = (count / total) * 100;
         const recentCount = CONFIG.digitsHistory.slice(-10).filter(d => d > threshold).length;
         const recentPercent = (recentCount / 10) * 100;
-        
-        if (recentPercent > 70) {
-            signal = `OVER ${threshold}`;
-            confidence = 65 + (recentPercent - 70);
-            message = `🔥 STRONG: ${recentCount}/10 recent digits are OVER ${threshold} (${recentPercent.toFixed(0)}%)`;
-        } else if (percent > 60) {
-            signal = `OVER ${threshold}`;
-            confidence = 55 + (percent - 60);
-            message = `📈 Historical trend: ${percent.toFixed(0)}% of digits are OVER ${threshold}`;
-        } else {
-            message = `⚡ ${percent.toFixed(0)}% of digits are OVER ${threshold} - Low probability`;
-        }
+        if (recentPercent > 70) { signal = `OVER ${threshold}`; confidence = 65 + (recentPercent - 70); message = `🔥 STRONG: ${recentCount}/10 recent digits are OVER ${threshold} (${recentPercent.toFixed(0)}%)`; }
+        else if (percent > 60) { signal = `OVER ${threshold}`; confidence = 55 + (percent - 60); message = `📈 Historical trend: ${percent.toFixed(0)}% of digits are OVER ${threshold}`; }
+        else message = `⚡ ${percent.toFixed(0)}% of digits are OVER ${threshold} - Low probability`;
     } else if (CONFIG.selectedUnderThreshold !== null) {
         const threshold = CONFIG.selectedUnderThreshold;
         const count = CONFIG.digitsHistory.filter(d => d < threshold).length;
         const percent = (count / total) * 100;
         const recentCount = CONFIG.digitsHistory.slice(-10).filter(d => d < threshold).length;
         const recentPercent = (recentCount / 10) * 100;
-        
-        if (recentPercent > 70) {
-            signal = `UNDER ${threshold}`;
-            confidence = 65 + (recentPercent - 70);
-            message = `🔥 STRONG: ${recentCount}/10 recent digits are UNDER ${threshold} (${recentPercent.toFixed(0)}%)`;
-        } else if (percent > 60) {
-            signal = `UNDER ${threshold}`;
-            confidence = 55 + (percent - 60);
-            message = `📉 Historical trend: ${percent.toFixed(0)}% of digits are UNDER ${threshold}`;
-        } else {
-            message = `⚡ ${percent.toFixed(0)}% of digits are UNDER ${threshold} - Low probability`;
-        }
+        if (recentPercent > 70) { signal = `UNDER ${threshold}`; confidence = 65 + (recentPercent - 70); message = `🔥 STRONG: ${recentCount}/10 recent digits are UNDER ${threshold} (${recentPercent.toFixed(0)}%)`; }
+        else if (percent > 60) { signal = `UNDER ${threshold}`; confidence = 55 + (percent - 60); message = `📉 Historical trend: ${percent.toFixed(0)}% of digits are UNDER ${threshold}`; }
+        else message = `⚡ ${percent.toFixed(0)}% of digits are UNDER ${threshold} - Low probability`;
     }
     
     if (signal && confidence > 55) {
         signalDiv.className = `mt-3 p-2 rounded-lg text-center ${signal.includes('OVER') ? 'bg-green-900/30 border border-green-500' : 'bg-red-900/30 border border-red-500'}`;
-        signalDiv.innerHTML = `
-            <p class="text-sm font-bold ${signal.includes('OVER') ? 'text-green-400' : 'text-red-400'}">${signal} SIGNAL DETECTED</p>
-            <p class="text-xs">${message}</p>
-            <p class="text-xs text-gray-400 mt-1">Confidence: ${Math.round(confidence)}%</p>
-        `;
+        signalDiv.innerHTML = `<p class="text-sm font-bold ${signal.includes('OVER') ? 'text-green-400' : 'text-red-400'}">${signal} SIGNAL DETECTED</p><p class="text-xs">${message}</p><p class="text-xs text-gray-400 mt-1">Confidence: ${Math.round(confidence)}%</p>`;
         signalDiv.classList.remove('hidden');
-        
         const now = Date.now();
-        if (now - CONFIG.lastVoiceTime > CONFIG.voiceCooldown) {
-            speak(`${signal} signal with ${Math.round(confidence)} percent confidence based on threshold analysis`);
-            CONFIG.lastVoiceTime = now;
-        }
+        if (now - CONFIG.lastVoiceTime > CONFIG.voiceCooldown) { speak(`${signal} signal with ${Math.round(confidence)} percent confidence based on threshold analysis`); CONFIG.lastVoiceTime = now; }
     } else {
         signalDiv.innerHTML = `<p class="text-xs text-center text-gray-400">${message}</p>`;
         signalDiv.classList.remove('hidden');
     }
 }
 
-// ============ DERIV WEBSOCKET CONNECTION ============
 async function connectDerivWebSocket() {
     updateConnectionStatus('Connecting to Deriv...', false);
-    
     return new Promise((resolve, reject) => {
         CONFIG.ws = new WebSocket(DERIV_WS_URL);
-        
         CONFIG.ws.onopen = async () => {
             CONFIG.isConnected = true;
             updateConnectionStatus('Connected to Deriv', true);
-            console.log('Connected to Deriv WebSocket with App ID:', DERIV_APP_ID);
             await subscribeToTicks();
             await fetchHistoricalData();
             resolve();
         };
-        
         CONFIG.ws.onmessage = (event) => {
             const response = JSON.parse(event.data);
             handleDerivResponse(response);
         };
-        
         CONFIG.ws.onerror = (error) => {
             console.error('WebSocket error:', error);
             updateConnectionStatus('Connection error', false);
             reject(error);
         };
-        
         CONFIG.ws.onclose = () => {
             CONFIG.isConnected = false;
             updateConnectionStatus('Disconnected, retrying...', false);
@@ -390,18 +458,15 @@ function sendRequest(msgType, params = {}) {
             reject(new Error('WebSocket not connected'));
             return;
         }
-        
         const reqId = CONFIG.requestId++;
         const request = { [msgType]: 1, req_id: reqId, ...params };
         CONFIG.pendingRequests.set(reqId, { resolve, reject });
-        
         setTimeout(() => {
             if (CONFIG.pendingRequests.has(reqId)) {
                 CONFIG.pendingRequests.delete(reqId);
                 reject(new Error('Request timeout'));
             }
         }, 10000);
-        
         CONFIG.ws.send(JSON.stringify(request));
     });
 }
@@ -425,11 +490,9 @@ async function fetchHistoricalData() {
             end: 'latest',
             style: 'ticks'
         });
-        
         if (response && response.history && response.history.prices) {
             const prices = response.history.prices;
             CONFIG.priceData = prices.map(p => parseFloat(p));
-            
             CONFIG.digitsHistory = [];
             CONFIG.priceData.forEach(price => {
                 const priceStr = price.toString();
@@ -437,20 +500,13 @@ async function fetchHistoricalData() {
                 const digit = decimalMatch ? parseInt(decimalMatch[1]) : Math.floor(price) % 10;
                 CONFIG.digitsHistory.push(digit);
             });
-            
-            if (CONFIG.digitsHistory.length > CONFIG.maxHistory) {
-                CONFIG.digitsHistory = CONFIG.digitsHistory.slice(-CONFIG.maxHistory);
-            }
-            if (CONFIG.priceData.length > CONFIG.maxHistory) {
-                CONFIG.priceData = CONFIG.priceData.slice(-CONFIG.maxHistory);
-            }
-            
+            if (CONFIG.digitsHistory.length > CONFIG.maxHistory) CONFIG.digitsHistory = CONFIG.digitsHistory.slice(-CONFIG.maxHistory);
+            if (CONFIG.priceData.length > CONFIG.maxHistory) CONFIG.priceData = CONFIG.priceData.slice(-CONFIG.maxHistory);
             updateDigitFrequency();
             updateCharts();
             updatePriceStats();
             updateLDP();
             updateThresholdStats();
-            
             console.log(`Fetched ${CONFIG.priceData.length} ticks for ${CONFIG.currentMarket}`);
             showNotification(`Loaded ${CONFIG.priceData.length} ticks from Deriv`, 'success');
         }
@@ -465,24 +521,13 @@ function updateDigitFrequency() {
     CONFIG.digitsHistory.forEach(d => {
         if (d >= 0 && d <= 9) CONFIG.digitsData[d]++;
     });
-    
     const total = CONFIG.digitsHistory.length || 1;
     const dominantDigit = CONFIG.digitsData.indexOf(Math.max(...CONFIG.digitsData));
     document.getElementById('dominantDigit').textContent = dominantDigit;
-    
     const statsDiv = document.getElementById('digitsStats');
     if (statsDiv) {
-        statsDiv.innerHTML = CONFIG.digitsData.map((count, i) => `
-            <div class="flex justify-between items-center text-[10px] md:text-xs">
-                <span class="w-5">${i}</span>
-                <div class="flex-1 mx-2 bg-gray-700 rounded-full h-1.5">
-                    <div class="h-1.5 rounded-full" style="width: ${(count / total) * 100}%; background: ${getDigitColor(i)}"></div>
-                </div>
-                <span class="w-8 text-right">${count}</span>
-            </div>
-        `).join('');
+        statsDiv.innerHTML = CONFIG.digitsData.map((count, i) => `<div class="flex justify-between items-center text-[10px] md:text-xs"><span class="w-5">${i}</span><div class="flex-1 mx-2 bg-gray-700 rounded-full h-1.5"><div class="h-1.5 rounded-full" style="width: ${(count / total) * 100}%; background: ${getDigitColor(i)}"></div></div><span class="w-8 text-right">${count}</span></div>`).join('');
     }
-    
     if (digitsChart) {
         digitsChart.data.datasets[0].data = CONFIG.digitsData;
         digitsChart.update();
@@ -496,15 +541,12 @@ function getDigitColor(digit) {
 
 function updatePriceStats() {
     if (CONFIG.priceData.length === 0) return;
-    
     const lastPrice = CONFIG.priceData[CONFIG.priceData.length - 1];
     const highPrice = Math.max(...CONFIG.priceData);
     const lowPrice = Math.min(...CONFIG.priceData);
-    
     document.getElementById('lastPrice').textContent = lastPrice.toFixed(4);
     document.getElementById('highPrice').textContent = highPrice.toFixed(4);
     document.getElementById('lowPrice').textContent = lowPrice.toFixed(4);
-    
     if (CONFIG.priceData.length > 1) {
         const prevPrice = CONFIG.priceData[CONFIG.priceData.length - 2];
         const change = ((lastPrice - prevPrice) / prevPrice * 100).toFixed(2);
@@ -522,7 +564,6 @@ function handleDerivResponse(response) {
         else resolve(response);
         return;
     }
-    
     if (response.msg_type === 'tick' && response.tick) {
         processLiveTick(response.tick);
     }
@@ -531,33 +572,21 @@ function handleDerivResponse(response) {
 function processLiveTick(tick) {
     const price = parseFloat(tick.quote);
     CONFIG.priceData.push(price);
-    if (CONFIG.priceData.length > CONFIG.maxHistory) {
-        CONFIG.priceData.shift();
-    }
-    
+    if (CONFIG.priceData.length > CONFIG.maxHistory) CONFIG.priceData.shift();
     const priceStr = price.toString();
     const decimalMatch = priceStr.match(/\.(\d)/);
     const digit = decimalMatch ? parseInt(decimalMatch[1]) : Math.floor(price) % 10;
-    
     CONFIG.digitsHistory.push(digit);
-    if (CONFIG.digitsHistory.length > CONFIG.maxHistory) {
-        CONFIG.digitsHistory.shift();
-    }
-    
+    if (CONFIG.digitsHistory.length > CONFIG.maxHistory) CONFIG.digitsHistory.shift();
     updateDigitFrequency();
     updatePriceStats();
     updateCharts();
     updateLDP();
     updateThresholdStats();
-    
     analyzeSignals(price, digit);
-    
-    if (CONFIG.selectedOverThreshold !== null || CONFIG.selectedUnderThreshold !== null) {
-        analyzeOverUnderThreshold();
-    }
+    if (CONFIG.selectedOverThreshold !== null || CONFIG.selectedUnderThreshold !== null) analyzeOverUnderThreshold();
 }
 
-// ============ CHARTS ============
 function initializeCharts() {
     const priceCtx = document.getElementById('priceChart');
     if (priceCtx) {
@@ -567,7 +596,6 @@ function initializeCharts() {
             options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#374151' }, ticks: { color: '#9CA3AF', font: { size: 10 } } }, x: { display: false } } }
         });
     }
-    
     const digitsCtx = document.getElementById('digitsDonut');
     if (digitsCtx) {
         digitsChart = new Chart(digitsCtx.getContext('2d'), {
@@ -585,7 +613,6 @@ function updateCharts() {
     }
 }
 
-// ============ SIGNAL ANALYSIS ============
 function calculateRSI(prices, period = 14) {
     if (prices.length < period + 1) return 50;
     let gains = 0, losses = 0;
@@ -620,93 +647,41 @@ function analyzeSignals(price, digit) {
     const sma20 = calculateSMA(CONFIG.priceData, 20);
     const sma50 = calculateSMA(CONFIG.priceData, 50);
     const bollinger = calculateBollingerBands(CONFIG.priceData, 20, 2);
-    
     const indicatorsDiv = document.getElementById('indicators');
     if (indicatorsDiv) {
-        indicatorsDiv.innerHTML = `
-            <div class="flex justify-between"><span>RSI (14):</span><span class="${rsi > 70 ? 'text-red-400' : rsi < 30 ? 'text-green-400' : 'text-white'}">${rsi ? rsi.toFixed(1) : 'N/A'}</span></div>
-            <div class="flex justify-between"><span>SMA 20:</span><span>${sma20 ? sma20.toFixed(4) : 'N/A'}</span></div>
-            <div class="flex justify-between"><span>SMA 50:</span><span>${sma50 ? sma50.toFixed(4) : 'N/A'}</span></div>
-            ${bollinger ? `<div class="flex justify-between"><span>Bollinger Width:</span><span>${((bollinger.upper - bollinger.lower) / bollinger.middle * 100).toFixed(1)}%</span></div>` : ''}
-        `;
+        indicatorsDiv.innerHTML = `<div class="flex justify-between"><span>RSI (14):</span><span class="${rsi > 70 ? 'text-red-400' : rsi < 30 ? 'text-green-400' : 'text-white'}">${rsi ? rsi.toFixed(1) : 'N/A'}</span></div><div class="flex justify-between"><span>SMA 20:</span><span>${sma20 ? sma20.toFixed(4) : 'N/A'}</span></div><div class="flex justify-between"><span>SMA 50:</span><span>${sma50 ? sma50.toFixed(4) : 'N/A'}</span></div>${bollinger ? `<div class="flex justify-between"><span>Bollinger Width:</span><span>${((bollinger.upper - bollinger.lower) / bollinger.middle * 100).toFixed(1)}%</span></div>` : ''}`;
     }
-    
     let signal = null;
     let confidence = 50;
     let reasons = [];
-    
     switch(CONFIG.currentTradeType) {
         case 'over_under':
-            const overDigits = [5, 6, 7, 8, 9];
+            const overDigits = [5,6,7,8,9];
             const recentOver = CONFIG.digitsHistory.slice(-10).filter(d => overDigits.includes(d)).length;
-            if (recentOver >= 7) {
-                signal = 'OVER 5';
-                confidence = 70 + (recentOver - 7) * 5;
-                reasons.push(`${recentOver}/10 recent digits over 5`);
-            } else if (recentOver <= 3) {
-                signal = 'UNDER 5';
-                confidence = 70 + (3 - recentOver) * 5;
-                reasons.push(`${10 - recentOver}/10 recent digits under 5`);
-            }
+            if (recentOver >= 7) { signal = 'OVER 5'; confidence = 70 + (recentOver - 7) * 5; reasons.push(`${recentOver}/10 recent digits over 5`); }
+            else if (recentOver <= 3) { signal = 'UNDER 5'; confidence = 70 + (3 - recentOver) * 5; reasons.push(`${10 - recentOver}/10 recent digits under 5`); }
             break;
-            
         case 'even_odd':
             const recentEven = CONFIG.digitsHistory.slice(-10).filter(d => d % 2 === 0).length;
-            if (recentEven >= 7) {
-                signal = 'EVEN';
-                confidence = 70 + (recentEven - 7) * 5;
-                reasons.push(`${recentEven}/10 recent digits even`);
-            } else if (recentEven <= 3) {
-                signal = 'ODD';
-                confidence = 70 + (3 - recentEven) * 5;
-                reasons.push(`${10 - recentEven}/10 recent digits odd`);
-            }
+            if (recentEven >= 7) { signal = 'EVEN'; confidence = 70 + (recentEven - 7) * 5; reasons.push(`${recentEven}/10 recent digits even`); }
+            else if (recentEven <= 3) { signal = 'ODD'; confidence = 70 + (3 - recentEven) * 5; reasons.push(`${10 - recentEven}/10 recent digits odd`); }
             break;
-            
         case 'matches_differs':
             if (CONFIG.digitsHistory.length >= 2) {
                 const lastTwo = CONFIG.digitsHistory.slice(-2);
-                if (lastTwo[0] === lastTwo[1]) {
-                    signal = 'DIFFERS';
-                    confidence = 65;
-                    reasons.push(`Last two digits matched (${lastTwo[0]},${lastTwo[0]})`);
-                } else {
-                    signal = 'MATCHES';
-                    confidence = 60;
-                    reasons.push(`Last two digits differed (${lastTwo[0]},${lastTwo[1]})`);
-                }
+                if (lastTwo[0] === lastTwo[1]) { signal = 'DIFFERS'; confidence = 65; reasons.push(`Last two digits matched (${lastTwo[0]},${lastTwo[0]})`); }
+                else { signal = 'MATCHES'; confidence = 60; reasons.push(`Last two digits differed (${lastTwo[0]},${lastTwo[1]})`); }
             }
             break;
-            
         case 'rise_fall':
-            if (rsi < 30) {
-                signal = 'RISE';
-                confidence = 75;
-                reasons.push(`RSI oversold: ${rsi.toFixed(1)}`);
-            } else if (rsi > 70) {
-                signal = 'FALL';
-                confidence = 75;
-                reasons.push(`RSI overbought: ${rsi.toFixed(1)}`);
-            } else if (sma20 && sma50 && sma20 > sma50 * 1.005) {
-                signal = 'RISE';
-                confidence = 65;
-                reasons.push('Golden crossover (SMA20 > SMA50)');
-            } else if (sma20 && sma50 && sma20 < sma50 * 0.995) {
-                signal = 'FALL';
-                confidence = 65;
-                reasons.push('Death crossover (SMA20 < SMA50)');
-            } else if (bollinger && price <= bollinger.lower) {
-                signal = 'RISE';
-                confidence = 70;
-                reasons.push('Price at lower Bollinger Band');
-            } else if (bollinger && price >= bollinger.upper) {
-                signal = 'FALL';
-                confidence = 70;
-                reasons.push('Price at upper Bollinger Band');
-            }
+            if (rsi < 30) { signal = 'RISE'; confidence = 75; reasons.push(`RSI oversold: ${rsi.toFixed(1)}`); }
+            else if (rsi > 70) { signal = 'FALL'; confidence = 75; reasons.push(`RSI overbought: ${rsi.toFixed(1)}`); }
+            else if (sma20 && sma50 && sma20 > sma50 * 1.005) { signal = 'RISE'; confidence = 65; reasons.push('Golden crossover (SMA20 > SMA50)'); }
+            else if (sma20 && sma50 && sma20 < sma50 * 0.995) { signal = 'FALL'; confidence = 65; reasons.push('Death crossover (SMA20 < SMA50)'); }
+            else if (bollinger && price <= bollinger.lower) { signal = 'RISE'; confidence = 70; reasons.push('Price at lower Bollinger Band'); }
+            else if (bollinger && price >= bollinger.upper) { signal = 'FALL'; confidence = 70; reasons.push('Price at upper Bollinger Band'); }
             break;
     }
-    
     const bar = document.getElementById('confidenceBar');
     const percent = document.getElementById('confidencePercent');
     if (bar && percent) {
@@ -716,13 +691,11 @@ function analyzeSignals(price, digit) {
         else if (confidence >= 60) bar.style.background = 'linear-gradient(90deg, #eab308, #f97316)';
         else bar.style.background = 'linear-gradient(90deg, #f97316, #ef4444)';
     }
-    
     if (signal && confidence > 55) {
         const now = Date.now();
         const shouldSpeak = (now - CONFIG.lastVoiceTime) > CONFIG.voiceCooldown;
         const signalChanged = CONFIG.currentSignal !== signal;
         const confidenceChanged = Math.abs(CONFIG.lastConfidence - confidence) > 15;
-        
         if (signalChanged || confidenceChanged) {
             generateSignal(signal, confidence, reasons, shouldSpeak);
             CONFIG.currentSignal = signal;
@@ -735,46 +708,29 @@ function analyzeSignals(price, digit) {
 function generateSignal(signal, confidence, reasons, speakNow = true) {
     const signalDiv = document.getElementById('currentSignal');
     const isBullish = signal === 'RISE' || signal === 'OVER 5' || signal === 'EVEN' || signal === 'MATCHES';
-    
     if (signalDiv) {
         signalDiv.className = `mb-3 p-3 rounded-lg text-center transition-all signal-active ${isBullish ? 'bg-green-900/30 border border-green-500' : 'bg-red-900/30 border border-red-500'}`;
-        signalDiv.innerHTML = `
-            <i class="fas ${isBullish ? 'fa-arrow-up' : 'fa-arrow-down'} text-2xl ${isBullish ? 'text-green-400' : 'text-red-400'} mb-1"></i>
-            <p class="text-xl font-bold ${isBullish ? 'text-green-400' : 'text-red-400'}">${signal}</p>
-            <p class="text-xs text-gray-300">Confidence: ${Math.round(confidence)}%</p>
-            <div class="text-xs text-gray-400 mt-1">${reasons.slice(0, 2).map(r => `<span class="inline-block px-1.5 py-0.5 bg-gray-800 rounded mr-1 mt-1">${r}</span>`).join('')}</div>
-            <p class="text-xs text-gray-500 mt-2">${CONFIG.currentMarket} | ${new Date().toLocaleTimeString()}</p>
-        `;
+        signalDiv.innerHTML = `<i class="fas ${isBullish ? 'fa-arrow-up' : 'fa-arrow-down'} text-2xl ${isBullish ? 'text-green-400' : 'text-red-400'} mb-1"></i><p class="text-xl font-bold ${isBullish ? 'text-green-400' : 'text-red-400'}">${signal}</p><p class="text-xs text-gray-300">Confidence: ${Math.round(confidence)}%</p><div class="text-xs text-gray-400 mt-1">${reasons.slice(0, 2).map(r => `<span class="inline-block px-1.5 py-0.5 bg-gray-800 rounded mr-1 mt-1">${r}</span>`).join('')}</div><p class="text-xs text-gray-500 mt-2">${CONFIG.currentMarket} | ${new Date().toLocaleTimeString()}</p>`;
     }
-    
     if (speakNow && CONFIG.voiceEnabled) {
         speak(`${signal} signal with ${Math.round(confidence)} percent confidence`);
         playAlertSound();
     }
-    
     addToSignalHistory(signal, confidence);
 }
 
 function addToSignalHistory(signal, confidence) {
     CONFIG.signalHistory.unshift({ signal, confidence, time: new Date().toLocaleTimeString(), market: CONFIG.currentMarket });
     if (CONFIG.signalHistory.length > 10) CONFIG.signalHistory.pop();
-    
     const historyDiv = document.getElementById('signalHistory');
     if (historyDiv) {
-        historyDiv.innerHTML = CONFIG.signalHistory.map(s => `
-            <div class="flex justify-between items-center p-1.5 bg-gray-800/30 rounded text-[10px] md:text-xs">
-                <div class="flex items-center"><i class="fas ${s.signal === 'RISE' || s.signal === 'OVER 5' || s.signal === 'EVEN' || s.signal === 'MATCHES' ? 'fa-arrow-up text-green-400' : 'fa-arrow-down text-red-400'} mr-1"></i><span class="font-semibold">${s.signal}</span></div>
-                <span class="text-gray-400">${s.market}</span><span class="text-gray-500">${s.time}</span><span class="${s.confidence > 70 ? 'text-green-400' : 'text-yellow-400'}">${Math.round(s.confidence)}%</span>
-            </div>
-        `).join('');
+        historyDiv.innerHTML = CONFIG.signalHistory.map(s => `<div class="flex justify-between items-center p-1.5 bg-gray-800/30 rounded text-[10px] md:text-xs"><div class="flex items-center"><i class="fas ${s.signal === 'RISE' || s.signal === 'OVER 5' || s.signal === 'EVEN' || s.signal === 'MATCHES' ? 'fa-arrow-up text-green-400' : 'fa-arrow-down text-red-400'} mr-1"></i><span class="font-semibold">${s.signal}</span></div><span class="text-gray-400">${s.market}</span><span class="text-gray-500">${s.time}</span><span class="${s.confidence > 70 ? 'text-green-400' : 'text-yellow-400'}">${Math.round(s.confidence)}%</span></div>`).join('');
     }
 }
 
-// ============ VOICE SYSTEM ============
 function initializeVoice() {
     const voiceToggle = document.getElementById('voiceToggle');
     const voiceGender = document.getElementById('voiceGender');
-    
     if (voiceToggle) {
         voiceToggle.addEventListener('click', () => {
             CONFIG.voiceEnabled = !CONFIG.voiceEnabled;
@@ -782,7 +738,6 @@ function initializeVoice() {
             if (CONFIG.voiceEnabled) speak('Voice alerts enabled');
         });
     }
-    
     if (voiceGender) {
         voiceGender.addEventListener('change', (e) => {
             CONFIG.voiceGender = e.target.value;
@@ -795,12 +750,10 @@ let currentUtterance = null;
 function speak(message) {
     if (!CONFIG.voiceEnabled) return;
     if (currentUtterance) speechSynthesis.cancel();
-    
     const utterance = new SpeechSynthesisUtterance(message);
     utterance.rate = 0.85;
     utterance.pitch = CONFIG.voiceGender === 'male' ? 1 : 1.3;
     utterance.volume = 0.8;
-    
     const indicator = document.getElementById('voiceIndicator');
     if (indicator) {
         indicator.classList.remove('hidden');
@@ -810,7 +763,6 @@ function speak(message) {
             indicator.classList.remove('voice-speaking');
         }, 2000);
     }
-    
     currentUtterance = utterance;
     speechSynthesis.speak(utterance);
 }
@@ -823,7 +775,6 @@ function playAlertSound() {
     }
 }
 
-// ============ SIMULATION FALLBACK ============
 function startSimulation() {
     console.log('Starting simulation mode as fallback');
     let price = 100;
@@ -836,7 +787,6 @@ function startSimulation() {
     }, 2000);
 }
 
-// ============ ECONOMIC DATA ============
 function loadEconomicCalendar() {
     const events = [
         { time: '10:30 AM', currency: 'USD', event: 'Fed Chair Powell Speech', impact: 'high' },
@@ -845,12 +795,9 @@ function loadEconomicCalendar() {
         { time: '02:00 PM', currency: 'GBP', event: 'UK GDP Report', impact: 'high' },
         { time: '12:00 PM', currency: 'CAD', event: 'Canada Employment Change', impact: 'medium' }
     ];
-    
     const calendar = document.getElementById('economicCalendar');
     if (calendar) {
-        calendar.innerHTML = events.map(event => `
-            <div class="flex justify-between items-center p-2 bg-gray-800/30 rounded"><div><p class="text-xs font-semibold">${event.event}</p><p class="text-xs text-gray-400">${event.time} | ${event.currency}</p></div><span class="text-xs px-1.5 py-0.5 rounded ${event.impact === 'high' ? 'bg-red-900/50 text-red-400' : 'bg-yellow-900/50 text-yellow-400'}">${event.impact}</span></div>
-        `).join('');
+        calendar.innerHTML = events.map(event => `<div class="flex justify-between items-center p-2 bg-gray-800/30 rounded"><div><p class="text-xs font-semibold">${event.event}</p><p class="text-xs text-gray-400">${event.time} | ${event.currency}</p></div><span class="text-xs px-1.5 py-0.5 rounded ${event.impact === 'high' ? 'bg-red-900/50 text-red-400' : 'bg-yellow-900/50 text-yellow-400'}">${event.impact}</span></div>`).join('');
     }
 }
 
@@ -863,16 +810,44 @@ function loadCommodities() {
         { name: 'Ethereum', price: 3450, change: '+1.5%', isUp: true },
         { name: 'S&P 500', price: 5120, change: '+0.3%', isUp: true }
     ];
-    
     const commoditiesDiv = document.getElementById('commodities');
     if (commoditiesDiv) {
-        commoditiesDiv.innerHTML = commodities.map(comm => `
-            <div class="flex justify-between items-center p-2 bg-gray-800/30 rounded"><span class="text-sm font-semibold">${comm.name}</span><span class="text-sm">$${comm.price.toLocaleString()}</span><span class="text-sm ${comm.isUp ? 'text-green-400' : 'text-red-400'}">${comm.change}</span></div>
-        `).join('');
+        commoditiesDiv.innerHTML = commodities.map(comm => `<div class="flex justify-between items-center p-2 bg-gray-800/30 rounded"><span class="text-sm font-semibold">${comm.name}</span><span class="text-sm">$${comm.price.toLocaleString()}</span><span class="text-sm ${comm.isUp ? 'text-green-400' : 'text-red-400'}">${comm.change}</span></div>`).join('');
     }
 }
 
-// ============ EVENT LISTENERS ============
+async function loadLiveNews() {
+    const newsFeed = document.getElementById('newsFeed');
+    if (!newsFeed) return;
+    newsFeed.innerHTML = `<div class="animate-pulse space-y-3"><div class="h-24 bg-gray-700 rounded"></div><div class="h-24 bg-gray-700 rounded"></div><div class="h-24 bg-gray-700 rounded"></div></div>`;
+    try {
+        const response = await axios.get(NEWS_API_URL, { params: { limit: 15, language: 'en' }, timeout: 10000 });
+        if (response.data && response.data.data && response.data.data.length > 0) {
+            const news = response.data.data;
+            newsFeed.innerHTML = news.map(item => `<div class="news-card bg-gray-800/30 rounded-lg p-3 transition-all cursor-pointer hover:bg-gray-800/50" onclick="window.open('${item.url || '#'}', '_blank')"><div class="flex gap-3">${item.image_url ? `<img src="${item.image_url}" alt="${item.title}" class="news-image" onerror="this.style.display='none'">` : ''}<div class="flex-1"><div class="flex justify-between items-start mb-1"><span class="text-xs font-semibold text-purple-400">${item.source || 'Market News'}</span><span class="text-xs text-gray-500">${item.published_at ? new Date(item.published_at).toLocaleTimeString() : 'Just now'}</span></div><p class="text-xs md:text-sm font-semibold text-white mb-1 line-clamp-2">${item.title}</p><p class="text-[10px] md:text-xs text-gray-400 line-clamp-2">${item.description || ''}</p><div class="flex gap-2 mt-2"><span class="text-[10px] px-2 py-0.5 rounded bg-blue-900/50 text-blue-400">${item.sector || 'Market'}</span>${item.sentiment ? `<span class="text-[10px] px-2 py-0.5 rounded ${item.sentiment_score > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}">${item.sentiment}</span>` : ''}</div></div></div></div>`).join('');
+            console.log(`Loaded ${news.length} live news articles`);
+        } else {
+            loadDemoNews();
+        }
+    } catch (error) {
+        console.error('Failed to fetch live news:', error);
+        loadDemoNews();
+    }
+}
+
+function loadDemoNews() {
+    const newsFeed = document.getElementById('newsFeed');
+    if (!newsFeed) return;
+    const demoNews = [
+        { title: 'Federal Reserve signals rate cut in September', source: 'Bloomberg', impact: 'high', time: '2h ago' },
+        { title: 'Gold hits all-time high above $2,400', source: 'Reuters', impact: 'high', time: '3h ago' },
+        { title: 'Oil prices surge 5% on Middle East tensions', source: 'CNBC', impact: 'medium', time: '5h ago' },
+        { title: 'Bitcoin volatility expected ahead of halving', source: 'CoinDesk', impact: 'medium', time: '6h ago' },
+        { title: 'European markets close higher on tech rally', source: 'FT', impact: 'low', time: '8h ago' }
+    ];
+    newsFeed.innerHTML = demoNews.map(item => `<div class="news-card bg-gray-800/30 rounded-lg p-3 transition-all"><div class="flex gap-3"><div class="flex-1"><div class="flex justify-between items-start mb-1"><span class="text-xs font-semibold text-purple-400">${item.source}</span><span class="text-xs text-gray-500">${item.time}</span></div><p class="text-xs md:text-sm font-semibold text-white">${item.title}</p><div class="mt-2"><span class="text-[10px] px-2 py-0.5 rounded ${item.impact === 'high' ? 'bg-red-900/50 text-red-400' : item.impact === 'medium' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-gray-700 text-gray-400'}">${item.impact.toUpperCase()} IMPACT</span></div></div></div></div>`).join('');
+}
+
 function setupEventListeners() {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -884,7 +859,6 @@ function setupEventListeners() {
             if (tabContent) tabContent.classList.remove('hidden');
         });
     });
-    
     const mt5Form = document.getElementById('mt5Form');
     if (mt5Form) {
         mt5Form.addEventListener('submit', (e) => {
@@ -899,12 +873,10 @@ function setupEventListeners() {
             mt5Form.reset();
         });
     }
-    
     const affiliateLink = document.getElementById('affiliateLink');
     if (affiliateLink) {
         affiliateLink.addEventListener('click', (e) => { e.preventDefault(); window.open('https://track.binary.com/affiliate', '_blank'); });
     }
-    
     const manualBtn = document.getElementById('manualAnalysisBtn');
     if (manualBtn) {
         manualBtn.addEventListener('click', () => {
