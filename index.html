@@ -56,129 +56,151 @@
             50% { box-shadow: 0 0 25px rgba(102, 126, 234, 0.8); }
         }
         
-        /* Login & Lock Screen Styles */
-        .login-overlay, .lock-overlay {
+        /* Markets Button */
+        .markets-main-btn {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1px solid rgba(102, 126, 234, 0.5);
+            border-radius: 50px;
+            padding: 10px 24px;
+            color: white;
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .markets-main-btn:hover {
+            border-color: #667eea;
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        /* Markets Modal */
+        .markets-modal {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.98);
+            background: rgba(0, 0, 0, 0.95);
             backdrop-filter: blur(20px);
-            z-index: 10000;
-            display: flex;
+            z-index: 10001;
+            display: none;
             align-items: center;
             justify-content: center;
             font-family: 'Rajdhani', sans-serif;
         }
         
-        .login-modal, .lock-modal {
-            background: linear-gradient(135deg, #1a1a2e, #0a0a0a);
-            border: 1px solid rgba(102,126,234,0.5);
-            border-radius: 24px;
-            padding: 32px;
-            width: 90%;
-            max-width: 400px;
-            box-shadow: 0 0 50px rgba(102,126,234,0.3);
+        .markets-modal.active {
+            display: flex;
+            animation: fadeIn 0.3s ease;
         }
         
-        .login-modal h2, .lock-modal h2 {
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .markets-modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #0a0a0a);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 24px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(102, 126, 234, 0.3);
+        }
+        
+        .markets-modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .markets-modal-header h2 {
             font-family: 'Orbitron', monospace;
-            text-align: center;
-            margin-bottom: 24px;
+            font-size: 18px;
             background: linear-gradient(135deg, #667eea, #764ba2);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
         }
         
-        .login-modal input, .lock-modal input {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(102,126,234,0.3);
-            border-radius: 8px;
-            color: white;
-            font-size: 14px;
-        }
-        
-        .login-modal input:focus, .lock-modal input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .login-modal button, .lock-modal button {
-            width: 100%;
-            padding: 12px;
-            margin-top: 16px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+        .close-modal-btn {
+            background: rgba(255, 255, 255, 0.1);
             border: none;
-            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
             color: white;
-            font-weight: bold;
             cursor: pointer;
-            transition: transform 0.2s;
+            transition: all 0.2s;
         }
         
-        .login-modal button:hover, .lock-modal button:hover {
-            transform: scale(1.02);
+        .close-modal-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+            transform: rotate(90deg);
         }
         
-        .error-message {
-            color: #ef4444;
-            font-size: 12px;
-            margin-top: 8px;
-            text-align: center;
-        }
-        
-        .lock-warning {
-            background: rgba(239,68,68,0.2);
-            border: 1px solid #ef4444;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            text-align: center;
-        }
-        
-        .loader-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
-            z-index: 9999;
+        .markets-list {
+            padding: 16px 20px;
+            max-height: 60vh;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            gap: 8px;
+        }
+        
+        .market-modal-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
             align-items: center;
-            transition: opacity 0.5s ease;
-        }
-        
-        .loader-ring { position: relative; width: 120px; height: 120px; }
-        .loader-ring svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
-        .loader-ring svg circle { fill: none; stroke: url(#gradient); stroke-width: 4; stroke-dasharray: 314; stroke-dashoffset: 314; animation: dash 2s ease-in-out infinite; }
-        
-        @keyframes dash {
-            0% { stroke-dashoffset: 314; }
-            50% { stroke-dashoffset: 157; }
-            100% { stroke-dashoffset: 314; }
-        }
-        
-        .loader-text {
-            margin-top: 30px;
-            font-family: 'Orbitron', monospace;
+            gap: 12px;
             font-size: 14px;
-            letter-spacing: 4px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            animation: pulse 1.5s ease-in-out infinite;
+            text-align: left;
         }
         
-        @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+        .market-modal-btn:hover {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+            transform: translateX(5px);
+        }
+        
+        .market-modal-btn i {
+            width: 24px;
+            color: #667eea;
+        }
+        
+        .market-modal-btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-color: transparent;
+        }
+        
+        .market-modal-btn.active i {
+            color: white;
+        }
+        
+        .current-market-badge {
+            background: rgba(102, 126, 234, 0.2);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 11px;
+            color: #667eea;
+            margin-left: auto;
+        }
         
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: #1a1a2e; }
@@ -193,9 +215,6 @@
         
         @keyframes signalPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.02); } }
         .signal-active { animation: signalPulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        
-        .market-btn { transition: all 0.3s ease; }
-        .market-btn.active { background: linear-gradient(135deg, #667eea, #764ba2); }
         
         .ldp-grid {
             display: grid;
@@ -267,6 +286,14 @@
                         <div><img src="https://i.postimg.cc/bNz4zzFT/Whats-App-Image-2026-05-14-at-7-57-15-PM.jpg" alt="KAIRON Logo" class="h-8 w-8 md:h-10 md:w-10 rounded-full border border-purple-500" onerror="this.style.display='none'"></div>
                         <div><h1 class="text-sm md:text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">KAIRON SYSTEMS</h1><p class="text-[10px] md:text-xs text-gray-400">Quantum Trading Analysis</p></div>
                     </div>
+                    
+                    <!-- NEW MARKETS BUTTON - Replaces the scrollable market list -->
+                    <button id="marketsMainBtn" class="markets-main-btn">
+                        <i class="fas fa-chart-simple"></i>
+                        <span>Markets</span>
+                        <i class="fas fa-chevron-down text-xs"></i>
+                    </button>
+                    
                     <div id="connectionStatus" class="flex items-center space-x-1 md:space-x-2 bg-gray-800/50 px-2 md:px-3 py-1 rounded-full"><div class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-yellow-500 animate-pulse"></div><span class="text-[10px] md:text-xs">Connecting...</span></div>
                     <div class="flex items-center space-x-1 md:space-x-2">
                         <select id="voiceGender" class="bg-gray-800 text-white text-[10px] md:text-xs rounded-lg px-1 md:px-2 py-1 border border-gray-700"><option value="male">Male</option><option value="female">Female</option></select>
@@ -275,6 +302,19 @@
                 </div>
             </div>
         </header>
+        
+        <!-- MARKETS MODAL POPUP -->
+        <div id="marketsModal" class="markets-modal">
+            <div class="markets-modal-content">
+                <div class="markets-modal-header">
+                    <h2><i class="fas fa-chart-line mr-2"></i>Select Market</h2>
+                    <button class="close-modal-btn" id="closeMarketsModal"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="markets-list" id="marketsListModal">
+                    <!-- Markets will be populated here dynamically -->
+                </div>
+            </div>
+        </div>
         
         <div class="pt-16 md:pt-20 pb-2 px-4">
             <div class="container mx-auto">
@@ -288,8 +328,12 @@
         
         <div id="derivTab" class="tab-content">
             <div class="container mx-auto px-4 pb-8">
-                <div class="mb-4"><div class="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide" id="marketGrid"></div></div>
+                <!-- Removed the scrollable marketGrid div - now using button modal instead -->
                 <div class="mb-4 flex flex-wrap gap-2 items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-gray-400">Current Market:</label>
+                        <span id="currentMarketName" class="text-sm font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Volatility 100 Index</span>
+                    </div>
                     <div class="flex items-center gap-2"><label class="text-xs text-gray-400">Tick History:</label><select id="tickSelector" class="tick-selector"><option value="50">50 ticks</option><option value="100">100 ticks</option><option value="200">200 ticks</option><option value="500">500 ticks</option><option value="1000" selected>1000 ticks</option></select></div>
                     <button id="refreshDataBtn" class="px-3 py-1 bg-purple-600 rounded-lg text-xs hover:bg-purple-700 transition"><i class="fas fa-sync-alt mr-1"></i>Refresh Data</button>
                 </div>
@@ -494,18 +538,84 @@
             if(bar&&pct){ let c=Math.min(99,Math.max(1,confidence)); bar.style.width=`${c}%`; pct.textContent=`${Math.round(c)}%`; bar.style.background=c>=75?'linear-gradient(90deg,#22c55e,#eab308)':c>=60?'linear-gradient(90deg,#eab308,#f97316)':'linear-gradient(90deg,#f97316,#ef4444)'; }
         }
         
+        // NEW: Initialize markets in the modal popup instead of scrollable grid
+        function initMarketsModal() {
+            const modalContainer = document.getElementById('marketsListModal');
+            if (modalContainer) {
+                modalContainer.innerHTML = ALL_MARKETS.map(m => `
+                    <button class="market-modal-btn ${currentMarket === m ? 'active' : ''}" data-market="${m}">
+                        <i class="fas fa-chart-line"></i>
+                        <span>${MARKET_NAMES[m]}</span>
+                        ${currentMarket === m ? '<span class="current-market-badge"><i class="fas fa-check"></i> Active</span>' : ''}
+                    </button>
+                `).join('');
+                
+                // Add click handlers to modal buttons
+                document.querySelectorAll('.market-modal-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const marketId = btn.dataset.market;
+                        switchMarket(marketId);
+                        closeMarketsModal();
+                    });
+                });
+            }
+        }
+        
+        function openMarketsModal() {
+            const modal = document.getElementById('marketsModal');
+            if (modal) {
+                initMarketsModal(); // Refresh the list to show active market
+                modal.classList.add('active');
+            }
+        }
+        
+        function closeMarketsModal() {
+            const modal = document.getElementById('marketsModal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+        
+        function switchMarket(market){
+            currentMarket = market;
+            document.getElementById('currentMarketDisplay').innerText = MARKET_NAMES[market];
+            document.getElementById('currentMarketName').innerText = MARKET_NAMES[market];
+            if(MARKET_DATA[market]?.priceData.length){
+                priceData = MARKET_DATA[market].priceData;
+                digitsHistory = MARKET_DATA[market].digitsHistory;
+                updateUI();
+            }
+            initMarketsModal(); // Update modal button states
+        }
+        
         function initMarkets(){
-            let grid=document.getElementById('marketGrid');
-            if(grid) grid.innerHTML=ALL_MARKETS.map(m=>`<button class="market-btn px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs whitespace-nowrap transition ${currentMarket===m?'active bg-gradient-to-r from-blue-600 to-purple-600':'bg-gray-800/50'}" data-market="${m}"><i class="fas fa-chart-line mr-1"></i>${MARKET_NAMES[m]}</button>`).join('');
-            document.querySelectorAll('.market-btn').forEach(b=>b.addEventListener('click',()=>switchMarket(b.dataset.market)));
+            // Initialize modal and button handlers
+            initMarketsModal();
+            
+            // Open modal when markets button is clicked
+            document.getElementById('marketsMainBtn')?.addEventListener('click', openMarketsModal);
+            
+            // Close modal when close button is clicked
+            document.getElementById('closeMarketsModal')?.addEventListener('click', closeMarketsModal);
+            
+            // Close modal when clicking outside
+            document.getElementById('marketsModal')?.addEventListener('click', (e) => {
+                if (e.target === document.getElementById('marketsModal')) {
+                    closeMarketsModal();
+                }
+            });
+            
+            // Trade type buttons
             document.querySelectorAll('.trade-type-btn').forEach(b=>b.addEventListener('click',()=>{ document.querySelectorAll('.trade-type-btn').forEach(btn=>btn.classList.remove('active')); b.classList.add('active'); currentTradeType=b.dataset.type; document.getElementById('currentSignal').innerHTML='<div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Switched strategy, awaiting signals...</p>'; }));
+            
+            // Over/Under handlers
             document.querySelectorAll('[data-over]').forEach(el=>el.addEventListener('click',()=>{ selectedOverThreshold=parseInt(el.dataset.over); selectedUnderThreshold=null; document.querySelectorAll('[data-over],[data-under]').forEach(e=>e.classList.remove('selected','bg-purple-600')); el.classList.add('selected','bg-purple-600'); }));
             document.querySelectorAll('[data-under]').forEach(el=>el.addEventListener('click',()=>{ selectedUnderThreshold=parseInt(el.dataset.under); selectedOverThreshold=null; document.querySelectorAll('[data-over],[data-under]').forEach(e=>e.classList.remove('selected','bg-purple-600')); el.classList.add('selected','bg-purple-600'); }));
+            
+            // Analyse buttons
             document.getElementById('floatingAnalyseBtn')?.addEventListener('click',()=>{ if(priceData.length) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); });
             document.getElementById('manualAnalysisBtn')?.addEventListener('click',()=>{ if(priceData.length) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); });
         }
-        
-        function switchMarket(market){ currentMarket=market; document.getElementById('currentMarketDisplay').innerText=MARKET_NAMES[market]; if(MARKET_DATA[market]?.priceData.length){ priceData=MARKET_DATA[market].priceData; digitsHistory=MARKET_DATA[market].digitsHistory; updateUI(); } }
         
         function updateUI(){
             let total=digitsHistory.length||1; digitsData=Array(10).fill(0); digitsHistory.forEach(d=>{if(d>=0&&d<=9)digitsData[d]++;});
@@ -532,6 +642,13 @@
         function connectDeriv(){ startSimulationMode(); }
         
         function startTradingApp(){ initMarkets(); initCharts(); connectDeriv(); }
+        
+        // Add escape key to close modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeMarketsModal();
+            }
+        });
     </script>
 </body>
 </html>
