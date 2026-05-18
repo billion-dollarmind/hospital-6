@@ -19,7 +19,6 @@
             min-height: 100vh;
         }
         
-        /* Floating Analyse Button */
         .floating-analyse-btn {
             position: fixed;
             bottom: 80px;
@@ -46,17 +45,73 @@
             box-shadow: 0 0 30px rgba(102, 126, 234, 0.8);
         }
         
-        .floating-analyse-btn.analyzing {
-            animation: none;
-            background: linear-gradient(135deg, #f59e0b, #ef4444);
-        }
-        
         @keyframes glowPulse {
             0%, 100% { box-shadow: 0 0 10px rgba(102, 126, 234, 0.3); }
             50% { box-shadow: 0 0 25px rgba(102, 126, 234, 0.8); }
         }
         
-        /* Login & Lock Screen Styles */
+        /* Market Dropdown Styles - NEW but safe */
+        .market-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .market-dropdown-btn {
+            background: #1a1a2e;
+            border: 1px solid #667eea;
+            border-radius: 8px;
+            padding: 6px 12px;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        
+        .market-dropdown-btn:hover {
+            background: #1e293b;
+            border-color: #764ba2;
+        }
+        
+        .market-dropdown-content {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #1a1a2e;
+            border: 1px solid #667eea;
+            border-radius: 12px;
+            min-width: 220px;
+            max-height: 350px;
+            overflow-y: auto;
+            z-index: 1000;
+            margin-top: 5px;
+            display: none;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        
+        .market-dropdown-content.show {
+            display: block;
+        }
+        
+        .market-dropdown-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 1px solid #2d2d4a;
+            font-size: 12px;
+            color: white;
+        }
+        
+        .market-dropdown-item:hover {
+            background: #667eea;
+        }
+        
+        .market-dropdown-item.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+        
         .login-overlay, .lock-overlay {
             position: fixed;
             top: 0;
@@ -191,88 +246,6 @@
         .trade-type-btn { transition: all 0.3s ease; cursor: pointer; }
         .trade-type-btn.active { background: linear-gradient(135deg, #667eea, #764ba2); transform: scale(1.02); }
         
-        @keyframes signalPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.02); } }
-        .signal-active { animation: signalPulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        
-        /* New Market Dropdown Styles */
-        .markets-dropdown {
-            position: relative;
-            display: inline-block;
-        }
-        
-        .markets-dropdown-btn {
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            border: 1px solid rgba(102, 126, 234, 0.5);
-            border-radius: 8px;
-            padding: 6px 12px;
-            color: white;
-            font-size: 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
-        }
-        
-        .markets-dropdown-btn:hover {
-            border-color: #667eea;
-            background: #1e293b;
-        }
-        
-        .markets-dropdown-content {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background: linear-gradient(135deg, #1a1a2e, #0a0a0a);
-            border: 1px solid rgba(102, 126, 234, 0.3);
-            border-radius: 12px;
-            min-width: 220px;
-            max-height: 400px;
-            overflow-y: auto;
-            z-index: 100;
-            margin-top: 5px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            display: none;
-        }
-        
-        .markets-dropdown-content.show {
-            display: block;
-            animation: fadeIn 0.2s ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .market-dropdown-item {
-            padding: 10px 15px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border-bottom: 1px solid rgba(102, 126, 234, 0.1);
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .market-dropdown-item:hover {
-            background: rgba(102, 126, 234, 0.2);
-        }
-        
-        .market-dropdown-item.active {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-        }
-        
-        .market-dropdown-item i {
-            width: 20px;
-            color: #667eea;
-        }
-        
-        .market-dropdown-item.active i {
-            color: white;
-        }
-        
         .ldp-grid {
             display: grid;
             grid-template-columns: repeat(10, 1fr);
@@ -320,13 +293,11 @@
         
         .tick-selector { background: #1a1a2e; border: 1px solid #667eea; border-radius: 8px; padding: 4px 8px; color: white; font-size: 12px; }
         
-        .selected-market-name {
-            color: #667eea;
-            font-weight: bold;
-            max-width: 150px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        .current-market-badge {
+            background: rgba(102,126,234,0.2);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
         }
     </style>
 </head>
@@ -338,7 +309,6 @@
     </div>
 
     <div id="mainContent" style="display: none;">
-        <!-- Floating Analyse Button -->
         <button id="floatingAnalyseBtn" class="floating-analyse-btn">
             <i class="fas fa-chart-line"></i>
             <span>ANALYSE MARKET</span>
@@ -373,21 +343,17 @@
         
         <div id="derivTab" class="tab-content">
             <div class="container mx-auto px-4 pb-8">
-                <!-- Removed scrollable market grid - replaced with dropdown next to tick selector -->
+                <!-- Market Dropdown instead of scrollable grid -->
                 <div class="mb-4 flex flex-wrap gap-2 items-center justify-between">
                     <div class="flex items-center gap-3 flex-wrap">
-                        <!-- Market Dropdown Button -->
-                        <div class="markets-dropdown">
-                            <button class="markets-dropdown-btn" id="marketsDropdownBtn">
+                        <div class="market-dropdown">
+                            <button class="market-dropdown-btn" id="marketDropdownBtn">
                                 <i class="fas fa-chart-simple"></i>
-                                <span id="selectedMarketDisplay">Volatility 100 Index</span>
+                                <span id="selectedMarketText">Volatility 100 Index</span>
                                 <i class="fas fa-chevron-down text-xs"></i>
                             </button>
-                            <div class="markets-dropdown-content" id="marketsDropdownContent">
-                                <!-- Markets will be populated here -->
-                            </div>
+                            <div class="market-dropdown-content" id="marketDropdownContent"></div>
                         </div>
-                        
                         <div class="flex items-center gap-2">
                             <label class="text-xs text-gray-400">Tick History:</label>
                             <select id="tickSelector" class="tick-selector">
@@ -401,6 +367,7 @@
                     </div>
                     <button id="refreshDataBtn" class="px-3 py-1 bg-purple-600 rounded-lg text-xs hover:bg-purple-700 transition"><i class="fas fa-sync-alt mr-1"></i>Refresh Data</button>
                 </div>
+                
                 <div class="mb-4"><h3 class="text-xs md:text-sm font-semibold text-gray-400 mb-2">Select Trading Type</h3><div class="grid grid-cols-4 gap-1 md:gap-2"><button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm" data-type="over_under"><i class="fas fa-arrow-up text-green-400 mr-1"></i>Over / Under</button><button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm" data-type="even_odd"><i class="fas fa-circle text-blue-400 mr-1"></i>Even / Odd</button><button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm" data-type="matches_differs"><i class="fas fa-equals text-purple-400 mr-1"></i>Matches / Differs</button><button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm active" data-type="rise_fall"><i class="fas fa-chart-line text-yellow-400 mr-1"></i>Rise / Fall</button></div></div>
                 
                 <div class="mb-4 glass-card rounded-xl p-3 md:p-4"><div class="flex justify-between items-center mb-3"><h3 class="text-sm md:text-base font-semibold"><i class="fas fa-chart-simple mr-2 text-blue-400"></i>LDP - Last 20 Digits</h3><span class="text-xs text-gray-400">Most Recent →</span></div><div id="ldpGrid" class="ldp-grid"></div><div class="mt-3 text-center"><p class="text-xs text-gray-400">Current Last Digit: <span id="currentLastDigit" class="text-xl font-bold text-yellow-400">-</span></p></div></div>
@@ -430,8 +397,7 @@
     <audio id="alertSound" preload="auto"><source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" type="audio/mpeg"></audio>
 
     <script>
-        // ============ SECURE LOGIN SYSTEM WITH MULTI-LOGIN REVOCATION ============
-        // ** COMPLETELY UNCHANGED - ORIGINAL SECURITY CODE **
+        // ============ SECURE LOGIN SYSTEM - COMPLETELY UNCHANGED ============
         (function() {
             const SECRET_UNLOCK_CODE = "42055578";
             const VALID_EMAIL = "caleborenge08@gmail.com";
@@ -603,14 +569,13 @@
             if(bar&&pct){ let c=Math.min(99,Math.max(1,confidence)); bar.style.width=`${c}%`; pct.textContent=`${Math.round(c)}%`; bar.style.background=c>=75?'linear-gradient(90deg,#22c55e,#eab308)':c>=60?'linear-gradient(90deg,#eab308,#f97316)':'linear-gradient(90deg,#f97316,#ef4444)'; }
         }
         
-        // NEW: Initialize dropdown market selector (replaces scrollable grid)
-        function initMarketsDropdown() {
-            const dropdownContent = document.getElementById('marketsDropdownContent');
-            if (dropdownContent) {
-                dropdownContent.innerHTML = ALL_MARKETS.map(m => `
+        // Initialize dropdown menu
+        function initMarketDropdown() {
+            const content = document.getElementById('marketDropdownContent');
+            if (content) {
+                content.innerHTML = ALL_MARKETS.map(m => `
                     <div class="market-dropdown-item ${currentMarket === m ? 'active' : ''}" data-market="${m}">
-                        <i class="fas fa-chart-line"></i>
-                        <span>${MARKET_NAMES[m]}</span>
+                        <i class="fas fa-chart-line mr-2"></i>${MARKET_NAMES[m]}
                     </div>
                 `).join('');
                 
@@ -618,60 +583,46 @@
                     item.addEventListener('click', () => {
                         const marketId = item.dataset.market;
                         switchMarket(marketId);
-                        document.getElementById('marketsDropdownContent').classList.remove('show');
+                        document.getElementById('marketDropdownContent').classList.remove('show');
                     });
                 });
             }
-        }
-        
-        // Toggle dropdown
-        function setupDropdownEvents() {
-            const dropdownBtn = document.getElementById('marketsDropdownBtn');
-            const dropdownContent = document.getElementById('marketsDropdownContent');
             
-            dropdownBtn?.addEventListener('click', (e) => {
+            // Toggle dropdown
+            const btn = document.getElementById('marketDropdownBtn');
+            const dropdown = document.getElementById('marketDropdownContent');
+            btn?.addEventListener('click', (e) => {
                 e.stopPropagation();
-                dropdownContent.classList.toggle('show');
+                dropdown.classList.toggle('show');
             });
             
-            // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!dropdownBtn?.contains(e.target) && !dropdownContent?.contains(e.target)) {
-                    dropdownContent?.classList.remove('show');
-                }
+            document.addEventListener('click', () => {
+                dropdown?.classList.remove('show');
             });
         }
         
         function switchMarket(market){ 
             currentMarket = market; 
             document.getElementById('currentMarketDisplay').innerText = MARKET_NAMES[market];
-            document.getElementById('selectedMarketDisplay').innerText = MARKET_NAMES[market];
+            document.getElementById('selectedMarketText').innerText = MARKET_NAMES[market];
             if(MARKET_DATA[market]?.priceData.length){ 
-                priceData = [...MARKET_DATA[market].priceData]; 
-                digitsHistory = [...MARKET_DATA[market].digitsHistory]; 
+                priceData = MARKET_DATA[market].priceData; 
+                digitsHistory = MARKET_DATA[market].digitsHistory; 
                 updateUI(); 
                 if(priceChart) {
                     priceChart.data.datasets[0].data = priceData.slice(-100);
                     priceChart.update();
                 }
             }
-            // Update active state in dropdown
-            initMarketsDropdown();
+            initMarketDropdown();
         }
         
         function initMarkets(){
-            // Initialize dropdown instead of scrollable grid
-            initMarketsDropdown();
-            setupDropdownEvents();
+            initMarketDropdown();
             
-            // Trade type buttons
             document.querySelectorAll('.trade-type-btn').forEach(b=>b.addEventListener('click',()=>{ document.querySelectorAll('.trade-type-btn').forEach(btn=>btn.classList.remove('active')); b.classList.add('active'); currentTradeType=b.dataset.type; document.getElementById('currentSignal').innerHTML='<div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Switched strategy, awaiting signals...</p>'; }));
-            
-            // Over/Under handlers
             document.querySelectorAll('[data-over]').forEach(el=>el.addEventListener('click',()=>{ selectedOverThreshold=parseInt(el.dataset.over); selectedUnderThreshold=null; document.querySelectorAll('[data-over],[data-under]').forEach(e=>e.classList.remove('selected','bg-purple-600')); el.classList.add('selected','bg-purple-600'); }));
             document.querySelectorAll('[data-under]').forEach(el=>el.addEventListener('click',()=>{ selectedUnderThreshold=parseInt(el.dataset.under); selectedOverThreshold=null; document.querySelectorAll('[data-over],[data-under]').forEach(e=>e.classList.remove('selected','bg-purple-600')); el.classList.add('selected','bg-purple-600'); }));
-            
-            // Analyse buttons
             document.getElementById('floatingAnalyseBtn')?.addEventListener('click',()=>{ if(priceData.length) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); });
             document.getElementById('manualAnalysisBtn')?.addEventListener('click',()=>{ if(priceData.length) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); });
         }
