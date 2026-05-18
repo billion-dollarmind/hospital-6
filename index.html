@@ -6,7 +6,6 @@
     <title>KAIRON SYSTEMS - Secure Trading Analysis Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
@@ -18,6 +17,43 @@
             background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
             color: #fff;
             min-height: 100vh;
+        }
+        
+        /* Floating Analyse Button */
+        .floating-analyse-btn {
+            position: fixed;
+            bottom: 80px;
+            left: 20px;
+            z-index: 1000;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 50px;
+            padding: 12px 24px;
+            color: white;
+            font-weight: bold;
+            font-family: 'Orbitron', monospace;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: glowPulse 2s ease-in-out infinite;
+        }
+        
+        .floating-analyse-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(102, 126, 234, 0.8);
+        }
+        
+        .floating-analyse-btn.analyzing {
+            animation: none;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+        }
+        
+        @keyframes glowPulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(102, 126, 234, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(102, 126, 234, 0.8); }
         }
         
         /* Login & Lock Screen Styles */
@@ -89,12 +125,6 @@
             transform: scale(1.02);
         }
         
-        .lock-modal input {
-            text-align: center;
-            font-size: 20px;
-            letter-spacing: 4px;
-        }
-        
         .error-message {
             color: #ef4444;
             font-size: 12px;
@@ -148,13 +178,6 @@
             animation: pulse 1.5s ease-in-out infinite;
         }
         
-        .loader-dots { display: flex; gap: 8px; margin-top: 20px; }
-        .loader-dots div { width: 8px; height: 8px; background: #667eea; border-radius: 50%; animation: bounce 0.8s ease-in-out infinite; }
-        .loader-dots div:nth-child(1) { animation-delay: 0s; }
-        .loader-dots div:nth-child(2) { animation-delay: 0.2s; }
-        .loader-dots div:nth-child(3) { animation-delay: 0.4s; }
-        
-        @keyframes bounce { 0%, 100% { transform: translateY(0); opacity: 0.3; } 50% { transform: translateY(-10px); opacity: 1; } }
         @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
         
         ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -174,31 +197,6 @@
         .market-btn { transition: all 0.3s ease; }
         .market-btn.active { background: linear-gradient(135deg, #667eea, #764ba2); }
         
-        @media (max-width: 768px) {
-            .container { padding-left: 12px; padding-right: 12px; }
-            .glass-card { padding: 16px; }
-            .trade-type-btn { font-size: 11px; padding: 6px 10px; }
-        }
-        
-        .data-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #667eea; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
-        .burner { position: relative; display: inline-block; }
-        .burner::after { content: '🔥'; position: absolute; top: -8px; right: -12px; font-size: 14px; animation: burn 0.5s ease-in-out infinite alternate; }
-        @keyframes burn { from { transform: scale(0.9); opacity: 0.7; } to { transform: scale(1.2); opacity: 1; } }
-        
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        .tick-selector { background: #1a1a2e; border: 1px solid #667eea; border-radius: 8px; padding: 4px 8px; color: white; font-size: 12px; }
-        .tick-selector:focus { outline: none; border-color: #764ba2; }
-        
-        .confidence-bar { transition: width 0.5s ease; }
-        
-        .voice-indicator { position: fixed; bottom: 80px; right: 20px; z-index: 100; }
-        .voice-speaking { animation: voicePulse 0.5s ease infinite; }
-        @keyframes voicePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7); } 50% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); } }
-        
         .ldp-grid {
             display: grid;
             grid-template-columns: repeat(10, 1fr);
@@ -216,7 +214,6 @@
             font-size: 14px;
             font-weight: bold;
             border-radius: 8px;
-            transition: all 0.2s ease;
         }
         
         .ldp-digit-0 { background: #ef4444; }
@@ -230,66 +227,44 @@
         .ldp-digit-8 { background: #d946ef; }
         .ldp-digit-9 { background: #ec4899; }
         
-        .over-under-btn {
-            transition: all 0.2s ease;
-            cursor: pointer;
-        }
+        .over-under-btn { transition: all 0.2s ease; cursor: pointer; }
+        .over-under-btn.selected { background: #667eea; transform: scale(1.05); }
         
-        .over-under-btn.selected {
-            background: #667eea;
-            transform: scale(1.05);
-        }
+        .confidence-bar { transition: width 0.5s ease; }
         
-        .news-card {
-            transition: all 0.3s ease;
-        }
+        .voice-indicator { position: fixed; bottom: 80px; right: 20px; z-index: 100; }
+        .voice-speaking { animation: voicePulse 0.5s ease infinite; }
+        @keyframes voicePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7); } 50% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); } }
         
-        .news-card:hover {
-            transform: translateX(5px);
-            background: rgba(102, 126, 234, 0.1);
-        }
+        .data-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #667eea; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
         
-        .news-image {
-            width: 60px;
-            height: 60px;
-            object-fit: cover;
-            border-radius: 8px;
-        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         
-        @media (max-width: 768px) {
-            .news-image {
-                width: 50px;
-                height: 50px;
-            }
-        }
+        .tick-selector { background: #1a1a2e; border: 1px solid #667eea; border-radius: 8px; padding: 4px 8px; color: white; font-size: 12px; }
     </style>
 </head>
 <body>
-    <!-- Elegant Loader -->
     <div class="loader-container" id="loader">
-        <div class="loader-ring">
-            <svg>
-                <defs><linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#667eea"/><stop offset="100%" style="stop-color:#764ba2"/></linearGradient></defs>
-                <circle cx="60" cy="60" r="50"/>
-            </svg>
-            <div class="absolute inset-0 flex items-center justify-center">
-                <i class="fas fa-chart-line text-2xl" style="background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; background-clip: text; color: transparent;"></i>
-            </div>
-        </div>
+        <div class="loader-ring"><svg><defs><linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#667eea"/><stop offset="100%" style="stop-color:#764ba2"/></linearGradient></defs><circle cx="60" cy="60" r="50"/></svg><div class="absolute inset-0 flex items-center justify-center"><i class="fas fa-chart-line text-2xl" style="background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; background-clip: text; color: transparent;"></i></div></div>
         <div class="loader-text">KAIRON SYSTEMS</div>
-        <div class="loader-dots"><div></div><div></div><div></div></div>
         <p class="text-xs text-gray-500 mt-4">Initializing Quantum Analysis Engine...</p>
-        <p class="text-xs text-gray-600 mt-1">Connecting to Deriv Volatility Markets</p>
     </div>
 
-    <!-- Main Content -->
     <div id="mainContent" style="display: none;">
-        <!-- Header -->
+        <!-- Floating Analyse Button -->
+        <button id="floatingAnalyseBtn" class="floating-analyse-btn">
+            <i class="fas fa-chart-line"></i>
+            <span>ANALYSE MARKET</span>
+            <i class="fas fa-arrow-right"></i>
+        </button>
+
         <header class="glass fixed top-0 left-0 right-0 z-50 border-b border-white/10">
             <div class="container mx-auto px-4 py-2 md:py-3">
                 <div class="flex items-center justify-between flex-wrap gap-2">
                     <div class="flex items-center space-x-2">
-                        <div class="relative burner"><img src="https://i.postimg.cc/bNz4zzFT/Whats-App-Image-2026-05-14-at-7-57-15-PM.jpg" alt="KAIRON Logo" class="h-8 w-8 md:h-10 md:w-10 rounded-full border border-purple-500"></div>
+                        <div><img src="https://i.postimg.cc/bNz4zzFT/Whats-App-Image-2026-05-14-at-7-57-15-PM.jpg" alt="KAIRON Logo" class="h-8 w-8 md:h-10 md:w-10 rounded-full border border-purple-500" onerror="this.style.display='none'"></div>
                         <div><h1 class="text-sm md:text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">KAIRON SYSTEMS</h1><p class="text-[10px] md:text-xs text-gray-400">Quantum Trading Analysis</p></div>
                     </div>
                     <div id="connectionStatus" class="flex items-center space-x-1 md:space-x-2 bg-gray-800/50 px-2 md:px-3 py-1 rounded-full"><div class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-yellow-500 animate-pulse"></div><span class="text-[10px] md:text-xs">Connecting...</span></div>
@@ -301,7 +276,6 @@
             </div>
         </header>
         
-        <!-- Main Tabs -->
         <div class="pt-16 md:pt-20 pb-2 px-4">
             <div class="container mx-auto">
                 <div class="flex space-x-1 md:space-x-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -312,191 +286,252 @@
             </div>
         </div>
         
-        <!-- DERIV ANALYSIS TAB -->
         <div id="derivTab" class="tab-content">
             <div class="container mx-auto px-4 pb-8">
-                <!-- Market Selection -->
-                <div class="mb-4">
-                    <div class="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide" id="marketGrid"></div>
-                </div>
-                
-                <!-- Tick Selector & Controls -->
+                <div class="mb-4"><div class="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide" id="marketGrid"></div></div>
                 <div class="mb-4 flex flex-wrap gap-2 items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <label class="text-xs text-gray-400">Tick History:</label>
-                        <select id="tickSelector" class="tick-selector">
-                            <option value="50">50 ticks</option>
-                            <option value="100">100 ticks</option>
-                            <option value="200">200 ticks</option>
-                            <option value="500">500 ticks</option>
-                            <option value="1000" selected>1000 ticks</option>
-                        </select>
-                    </div>
+                    <div class="flex items-center gap-2"><label class="text-xs text-gray-400">Tick History:</label><select id="tickSelector" class="tick-selector"><option value="50">50 ticks</option><option value="100">100 ticks</option><option value="200">200 ticks</option><option value="500">500 ticks</option><option value="1000" selected>1000 ticks</option></select></div>
                     <button id="refreshDataBtn" class="px-3 py-1 bg-purple-600 rounded-lg text-xs hover:bg-purple-700 transition"><i class="fas fa-sync-alt mr-1"></i>Refresh Data</button>
                 </div>
+                <div class="mb-4"><h3 class="text-xs md:text-sm font-semibold text-gray-400 mb-2">Select Trading Type</h3><div class="grid grid-cols-4 gap-1 md:gap-2"><button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm" data-type="over_under"><i class="fas fa-arrow-up text-green-400 mr-1"></i>Over / Under</button><button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm" data-type="even_odd"><i class="fas fa-circle text-blue-400 mr-1"></i>Even / Odd</button><button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm" data-type="matches_differs"><i class="fas fa-equals text-purple-400 mr-1"></i>Matches / Differs</button><button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm active" data-type="rise_fall"><i class="fas fa-chart-line text-yellow-400 mr-1"></i>Rise / Fall</button></div></div>
                 
-                <!-- Trading Type Selection -->
-                <div class="mb-4">
-                    <h3 class="text-xs md:text-sm font-semibold text-gray-400 mb-2">Select Trading Type</h3>
-                    <div class="grid grid-cols-4 gap-1 md:gap-2">
-                        <button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm" data-type="over_under"><i class="fas fa-arrow-up text-green-400 mr-1"></i>Over / Under</button>
-                        <button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm" data-type="even_odd"><i class="fas fa-circle text-blue-400 mr-1"></i>Even / Odd</button>
-                        <button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm" data-type="matches_differs"><i class="fas fa-equals text-purple-400 mr-1"></i>Matches / Differs</button>
-                        <button class="trade-type-btn px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-gray-800/50 text-[10px] md:text-sm active" data-type="rise_fall"><i class="fas fa-chart-line text-yellow-400 mr-1"></i>Rise / Fall</button>
-                    </div>
-                </div>
+                <div class="mb-4 glass-card rounded-xl p-3 md:p-4"><div class="flex justify-between items-center mb-3"><h3 class="text-sm md:text-base font-semibold"><i class="fas fa-chart-simple mr-2 text-blue-400"></i>LDP - Last 20 Digits</h3><span class="text-xs text-gray-400">Most Recent →</span></div><div id="ldpGrid" class="ldp-grid"></div><div class="mt-3 text-center"><p class="text-xs text-gray-400">Current Last Digit: <span id="currentLastDigit" class="text-xl font-bold text-yellow-400">-</span></p></div></div>
                 
-                <!-- LDP - Last 20 Digits Display -->
-                <div class="mb-4 glass-card rounded-xl p-3 md:p-4">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-sm md:text-base font-semibold"><i class="fas fa-chart-simple mr-2 text-blue-400"></i>LDP - Last 20 Digits</h3>
-                        <span class="text-xs text-gray-400">Most Recent →</span>
-                    </div>
-                    <div id="ldpGrid" class="ldp-grid"></div>
-                    <div class="mt-3 text-center">
-                        <p class="text-xs text-gray-400">Current Last Digit: <span id="currentLastDigit" class="text-xl font-bold text-yellow-400">-</span></p>
-                    </div>
-                </div>
+                <div class="mb-4 glass-card rounded-xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-3"><i class="fas fa-chart-line mr-2 text-green-400"></i>Over / Under Threshold Analysis</h3><div class="grid grid-cols-2 gap-3"><div><p class="text-xs text-gray-400 mb-2">OVER (Greater than threshold)</p><div class="space-y-2"><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="0"><span class="text-sm">Over 0</span><span id="over0Percent" class="text-lg font-bold text-green-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="1"><span class="text-sm">Over 1</span><span id="over1Percent" class="text-lg font-bold text-green-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="2"><span class="text-sm">Over 2</span><span id="over2Percent" class="text-lg font-bold text-green-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="3"><span class="text-sm">Over 3</span><span id="over3Percent" class="text-lg font-bold text-green-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="4"><span class="text-sm">Over 4</span><span id="over4Percent" class="text-lg font-bold text-green-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="5"><span class="text-sm">Over 5</span><span id="over5Percent" class="text-lg font-bold text-green-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="6"><span class="text-sm">Over 6</span><span id="over6Percent" class="text-lg font-bold text-green-400">0%</span></div></div></div><div><p class="text-xs text-gray-400 mb-2">UNDER (Less than threshold)</p><div class="space-y-2"><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="9"><span class="text-sm">Under 9</span><span id="under9Percent" class="text-lg font-bold text-red-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="8"><span class="text-sm">Under 8</span><span id="under8Percent" class="text-lg font-bold text-red-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="7"><span class="text-sm">Under 7</span><span id="under7Percent" class="text-lg font-bold text-red-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="6"><span class="text-sm">Under 6</span><span id="under6Percent" class="text-lg font-bold text-red-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="5"><span class="text-sm">Under 5</span><span id="under5Percent" class="text-lg font-bold text-red-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="4"><span class="text-sm">Under 4</span><span id="under4Percent" class="text-lg font-bold text-red-400">0%</span></div><div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="3"><span class="text-sm">Under 3</span><span id="under3Percent" class="text-lg font-bold text-red-400">0%</span></div></div></div></div><div id="thresholdSignal" class="mt-3 p-2 rounded-lg text-center hidden"></div></div>
                 
-                <!-- Over/Under Threshold Analysis -->
-                <div class="mb-4 glass-card rounded-xl p-3 md:p-4">
-                    <h3 class="text-sm md:text-base font-semibold mb-3"><i class="fas fa-chart-line mr-2 text-green-400"></i>Over / Under Threshold Analysis</h3>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <p class="text-xs text-gray-400 mb-2">OVER (Greater than threshold)</p>
-                            <div class="space-y-2">
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="0"><span class="text-sm">Over 0</span><span id="over0Percent" class="text-lg font-bold text-green-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="1"><span class="text-sm">Over 1</span><span id="over1Percent" class="text-lg font-bold text-green-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="2"><span class="text-sm">Over 2</span><span id="over2Percent" class="text-lg font-bold text-green-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="3"><span class="text-sm">Over 3</span><span id="over3Percent" class="text-lg font-bold text-green-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="4"><span class="text-sm">Over 4</span><span id="over4Percent" class="text-lg font-bold text-green-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="5"><span class="text-sm">Over 5</span><span id="over5Percent" class="text-lg font-bold text-green-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-over="6"><span class="text-sm">Over 6</span><span id="over6Percent" class="text-lg font-bold text-green-400">0%</span></div>
-                            </div>
-                        </div>
-                        <div>
-                            <p class="text-xs text-gray-400 mb-2">UNDER (Less than threshold)</p>
-                            <div class="space-y-2">
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="9"><span class="text-sm">Under 9</span><span id="under9Percent" class="text-lg font-bold text-red-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="8"><span class="text-sm">Under 8</span><span id="under8Percent" class="text-lg font-bold text-red-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="7"><span class="text-sm">Under 7</span><span id="under7Percent" class="text-lg font-bold text-red-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="6"><span class="text-sm">Under 6</span><span id="under6Percent" class="text-lg font-bold text-red-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="5"><span class="text-sm">Under 5</span><span id="under5Percent" class="text-lg font-bold text-red-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="4"><span class="text-sm">Under 4</span><span id="under4Percent" class="text-lg font-bold text-red-400">0%</span></div>
-                                <div class="threshold-stats flex justify-between items-center p-2 bg-gray-800/30 rounded cursor-pointer over-under-btn" data-under="3"><span class="text-sm">Under 3</span><span id="under3Percent" class="text-lg font-bold text-red-400">0%</span></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="thresholdSignal" class="mt-3 p-2 rounded-lg text-center hidden"></div>
-                </div>
-                
-                <!-- Main Analysis Grid -->
                 <div class="grid lg:grid-cols-3 gap-3 md:gap-4">
                     <div class="lg:col-span-2 space-y-3 md:space-y-4">
-                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4">
-                            <h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-chart-pie mr-2 text-purple-400"></i>Digits Distribution</h3>
-                            <div class="grid grid-cols-2 gap-3 md:gap-4">
-                                <div class="flex justify-center"><div class="relative w-36 h-36 md:w-48 md:h-48"><canvas id="digitsDonut"></canvas><div class="absolute inset-0 flex items-center justify-center"><div class="text-center"><p class="text-xl md:text-2xl font-bold" id="dominantDigit">0</p><p class="text-[10px] md:text-xs text-gray-400">Dominant</p></div></div></div></div>
-                                <div><div class="space-y-1 max-h-32 md:max-h-48 overflow-y-auto" id="digitsStats"></div></div>
-                            </div>
-                        </div>
-                        
-                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4">
-                            <h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-chart-line mr-2 text-blue-400"></i>Real-time Price Action - <span id="currentMarketDisplay">R_100</span></h3>
-                            <canvas id="priceChart" height="200" class="w-full"></canvas>
-                            <div class="grid grid-cols-4 gap-1 md:gap-2 mt-3 text-center text-[10px] md:text-xs">
-                                <div><span class="text-gray-400">Last</span><br><span id="lastPrice" class="font-bold text-sm md:text-base">0.00</span></div>
-                                <div><span class="text-gray-400">High</span><br><span id="highPrice" class="font-bold text-green-400">0.00</span></div>
-                                <div><span class="text-gray-400">Low</span><br><span id="lowPrice" class="font-bold text-red-400">0.00</span></div>
-                                <div><span class="text-gray-400">Change</span><br><span id="priceChange" class="font-bold">0%</span></div>
-                            </div>
-                        </div>
+                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-chart-pie mr-2 text-purple-400"></i>Digits Distribution</h3><div class="grid grid-cols-2 gap-3 md:gap-4"><div class="flex justify-center"><div class="relative w-36 h-36 md:w-48 md:h-48"><canvas id="digitsDonut"></canvas><div class="absolute inset-0 flex items-center justify-center"><div class="text-center"><p class="text-xl md:text-2xl font-bold" id="dominantDigit">0</p><p class="text-[10px] md:text-xs text-gray-400">Dominant</p></div></div></div></div><div><div class="space-y-1 max-h-32 md:max-h-48 overflow-y-auto" id="digitsStats"></div></div></div></div>
+                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-chart-line mr-2 text-blue-400"></i>Real-time Price Action - <span id="currentMarketDisplay">Volatility 100 Index</span></h3><canvas id="priceChart" height="200" class="w-full"></canvas><div class="grid grid-cols-4 gap-1 md:gap-2 mt-3 text-center text-[10px] md:text-xs"><div><span class="text-gray-400">Last</span><br><span id="lastPrice" class="font-bold text-sm md:text-base">0.00</span></div><div><span class="text-gray-400">High</span><br><span id="highPrice" class="font-bold text-green-400">0.00</span></div><div><span class="text-gray-400">Low</span><br><span id="lowPrice" class="font-bold text-red-400">0.00</span></div><div><span class="text-gray-400">Change</span><br><span id="priceChange" class="font-bold">0%</span></div></div></div>
                     </div>
-                    
                     <div class="space-y-3 md:space-y-4">
-                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4">
-                            <h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-bullhorn mr-2 text-yellow-400"></i>Live Signals</h3>
-                            <div id="currentSignal" class="mb-3 p-3 rounded-lg text-center bg-gray-800/30 min-h-[120px]"><div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Awaiting market data...</p></div>
-                            <div class="mb-3"><div class="flex justify-between text-xs mb-1"><span>Signal Confidence</span><span id="confidencePercent">0%</span></div><div class="w-full bg-gray-700 rounded-full h-2"><div id="confidenceBar" class="confidence-bar h-2 rounded-full bg-gradient-to-r from-green-500 to-yellow-500" style="width: 0%"></div></div></div>
-                            <div class="space-y-1 md:space-y-2"><h4 class="text-[10px] md:text-xs font-semibold text-gray-400">Technical Indicators</h4><div id="indicators" class="space-y-1 text-[10px] md:text-xs"></div></div>
-                            <button id="manualAnalysisBtn" class="mt-3 w-full py-1.5 md:py-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg text-xs md:text-sm font-semibold hover:shadow-lg transition"><i class="fas fa-chart-line mr-1"></i>Run Analysis</button>
-                        </div>
-                        
-                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4">
-                            <h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-history mr-2 text-green-400"></i>Signal History</h3>
-                            <div id="signalHistory" class="space-y-1 max-h-40 md:max-h-48 overflow-y-auto"><p class="text-center text-gray-500 text-xs py-4">No signals yet</p></div>
-                        </div>
+                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-bullhorn mr-2 text-yellow-400"></i>Live Signals</h3><div id="currentSignal" class="mb-3 p-3 rounded-lg text-center bg-gray-800/50 min-h-[120px]"><div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Awaiting market data...</p></div><div class="mb-3"><div class="flex justify-between text-xs mb-1"><span>Signal Confidence</span><span id="confidencePercent">0%</span></div><div class="w-full bg-gray-700 rounded-full h-2"><div id="confidenceBar" class="confidence-bar h-2 rounded-full" style="width: 0%"></div></div></div><div class="space-y-1 md:space-y-2"><h4 class="text-[10px] md:text-xs font-semibold text-gray-400">Technical Indicators</h4><div id="indicators" class="space-y-1 text-[10px] md:text-xs"></div></div><button id="manualAnalysisBtn" class="mt-3 w-full py-1.5 md:py-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg text-xs md:text-sm font-semibold hover:shadow-lg transition"><i class="fas fa-chart-line mr-1"></i>Run Analysis</button></div>
+                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-history mr-2 text-green-400"></i>Signal History</h3><div id="signalHistory" class="space-y-1 max-h-40 md:max-h-48 overflow-y-auto"><p class="text-center text-gray-500 text-xs py-4">No signals yet</p></div></div>
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- FOREX BOT TAB -->
-        <div id="forexTab" class="tab-content hidden">
-            <div class="container mx-auto px-4 pb-8">
-                <div class="grid md:grid-cols-2 gap-3 md:gap-4">
-                    <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4">
-                        <h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-robot mr-2 text-blue-400"></i>Forex Bot Integration</h3>
-                        <p class="text-[10px] md:text-xs text-gray-400 mb-3 md:mb-4">Sign up with our affiliate link and submit your MT5 credentials to activate the automated scalping bot.</p>
-                        <form id="mt5Form" class="space-y-2 md:space-y-3">
-                            <div><label class="block text-[10px] md:text-xs font-medium mb-1">MT5 Login ID</label><input type="text" id="mt5Login" class="w-full px-3 py-1.5 md:py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-purple-500" placeholder="Enter your MT5 login"></div>
-                            <div><label class="block text-[10px] md:text-xs font-medium mb-1">Password</label><input type="password" id="mt5Password" class="w-full px-3 py-1.5 md:py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-purple-500" placeholder="Enter your MT5 password"></div>
-                            <div><label class="block text-[10px] md:text-xs font-medium mb-1">Server</label><input type="text" id="mt5Server" class="w-full px-3 py-1.5 md:py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-purple-500" placeholder="e.g., Deriv-Server"></div>
-                            <button type="submit" class="w-full py-1.5 md:py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-xs md:text-sm font-semibold hover:shadow-lg transition"><i class="fab fa-whatsapp mr-1"></i>Send to Admin</button>
-                        </form>
-                        <div class="mt-3 pt-3 border-t border-white/10"><p class="text-[10px] md:text-xs text-gray-400 text-center">Don't have an account? <a href="#" id="affiliateLink" class="text-purple-400 hover:underline">Sign up with our affiliate link</a></p></div>
-                    </div>
-                    <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4">
-                        <h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-chart-simple mr-2 text-purple-400"></i>Bot Performance</h3>
-                        <div class="grid grid-cols-2 gap-2 md:gap-3">
-                            <div class="bg-gray-800/30 rounded-lg p-2 text-center"><p class="text-[10px] md:text-xs text-gray-400">Win Rate</p><p class="text-base md:text-xl font-bold text-green-400" id="botWinRate">78.5%</p></div>
-                            <div class="bg-gray-800/30 rounded-lg p-2 text-center"><p class="text-[10px] md:text-xs text-gray-400">Total Trades</p><p class="text-base md:text-xl font-bold text-white" id="botTotalTrades">1,247</p></div>
-                            <div class="bg-gray-800/30 rounded-lg p-2 text-center"><p class="text-[10px] md:text-xs text-gray-400">Profit Factor</p><p class="text-base md:text-xl font-bold text-blue-400" id="botProfitFactor">2.3</p></div>
-                            <div class="bg-gray-800/30 rounded-lg p-2 text-center"><p class="text-[10px] md:text-xs text-gray-400">Active Bots</p><p class="text-base md:text-xl font-bold text-purple-400" id="botActiveCount">342</p></div>
-                        </div>
-                        <div class="mt-3 p-2 bg-yellow-900/20 rounded-lg border border-yellow-700"><p class="text-[10px] md:text-xs font-semibold text-yellow-400 flex items-center"><i class="fas fa-clock mr-1"></i>Waiting for Your Credentials</p><p class="text-[10px] text-yellow-300/70 mt-1">Submit your MT5 details to activate your personal scalping bot</p></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <div id="forexTab" class="tab-content hidden"><div class="container mx-auto px-4 pb-8"><div class="grid md:grid-cols-2 gap-3 md:gap-4"><div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-robot mr-2 text-blue-400"></i>Forex Bot Integration</h3><p class="text-[10px] md:text-xs text-gray-400 mb-3 md:mb-4">Submit your MT5 credentials to activate the automated scalping bot.</p><form id="mt5Form" class="space-y-2 md:space-y-3"><div><label class="block text-[10px] md:text-xs font-medium mb-1">MT5 Login ID</label><input type="text" id="mt5Login" class="w-full px-3 py-1.5 md:py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-purple-500"></div><div><label class="block text-[10px] md:text-xs font-medium mb-1">Password</label><input type="password" id="mt5Password" class="w-full px-3 py-1.5 md:py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-purple-500"></div><div><label class="block text-[10px] md:text-xs font-medium mb-1">Server</label><input type="text" id="mt5Server" class="w-full px-3 py-1.5 md:py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-purple-500"></div><button type="submit" class="w-full py-1.5 md:py-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-xs md:text-sm font-semibold hover:shadow-lg transition"><i class="fab fa-whatsapp mr-1"></i>Send to Admin</button></form></div><div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-chart-simple mr-2 text-purple-400"></i>Bot Performance</h3><div class="grid grid-cols-2 gap-2 md:gap-3"><div class="bg-gray-800/30 rounded-lg p-2 text-center"><p class="text-[10px] md:text-xs text-gray-400">Win Rate</p><p class="text-base md:text-xl font-bold text-green-400">78.5%</p></div><div class="bg-gray-800/30 rounded-lg p-2 text-center"><p class="text-[10px] md:text-xs text-gray-400">Total Trades</p><p class="text-base md:text-xl font-bold text-white">1,247</p></div><div class="bg-gray-800/30 rounded-lg p-2 text-center"><p class="text-[10px] md:text-xs text-gray-400">Profit Factor</p><p class="text-base md:text-xl font-bold text-blue-400">2.3</p></div><div class="bg-gray-800/30 rounded-lg p-2 text-center"><p class="text-[10px] md:text-xs text-gray-400">Active Bots</p><p class="text-base md:text-xl font-bold text-purple-400">342</p></div></div><div class="mt-3 p-2 bg-yellow-900/20 rounded-lg border border-yellow-700"><p class="text-[10px] md:text-xs font-semibold text-yellow-400"><i class="fas fa-clock mr-1"></i>Submit credentials to activate your bot</p></div></div></div></div></div>
         
-        <!-- MARKET NEWS TAB -->
-        <div id="newsTab" class="tab-content hidden">
-            <div class="container mx-auto px-4 pb-8">
-                <div class="grid lg:grid-cols-2 gap-3 md:gap-4">
-                    <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4">
-                        <h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-rss mr-2 text-orange-400"></i>Latest Market News</h3>
-                        <div id="newsFeed" class="space-y-3 max-h-[600px] overflow-y-auto">
-                            <div class="animate-pulse space-y-3">
-                                <div class="h-24 bg-gray-700 rounded"></div>
-                                <div class="h-24 bg-gray-700 rounded"></div>
-                                <div class="h-24 bg-gray-700 rounded"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="space-y-3 md:space-y-4">
-                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4">
-                            <h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-calendar-alt mr-2 text-blue-400"></i>Economic Calendar</h3>
-                            <div id="economicCalendar" class="space-y-2 max-h-64 overflow-y-auto"></div>
-                        </div>
-                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4">
-                            <h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-chart-line mr-2 text-green-400"></i>Commodities & Stocks</h3>
-                            <div id="commodities" class="space-y-2"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <div id="newsTab" class="tab-content hidden"><div class="container mx-auto px-4 pb-8"><div class="grid lg:grid-cols-2 gap-3 md:gap-4"><div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-rss mr-2 text-orange-400"></i>Latest Market News</h3><div id="newsFeed" class="space-y-3 max-h-[600px] overflow-y-auto"><div class="animate-pulse space-y-3"><div class="h-24 bg-gray-700 rounded"></div></div></div></div><div class="space-y-3 md:space-y-4"><div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-calendar-alt mr-2 text-blue-400"></i>Economic Calendar</h3><div id="economicCalendar" class="space-y-2 max-h-64 overflow-y-auto"></div></div><div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-chart-line mr-2 text-green-400"></i>Commodities & Stocks</h3><div id="commodities" class="space-y-2"></div></div></div></div></div></div>
     </div>
     
-    <!-- Voice Indicator -->
     <div id="voiceIndicator" class="voice-indicator hidden"><div class="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center"><i class="fas fa-microphone-alt text-white"></i></div></div>
-    
-    <!-- WhatsApp Float Button -->
     <a href="https://wa.me/254799045699" target="_blank" class="fixed bottom-4 right-4 bg-green-500 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition z-50"><i class="fab fa-whatsapp text-white text-lg md:text-xl"></i></a>
-    
     <audio id="alertSound" preload="auto"><source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" type="audio/mpeg"></audio>
 
-    <script src="app.js"></script>
+    <script>
+        // ============ SECURE LOGIN SYSTEM WITH MULTI-LOGIN REVOCATION ============
+        (function() {
+            const SECRET_UNLOCK_CODE = "42055578";
+            const VALID_EMAIL = "caleborenge08@gmail.com";
+            const VALID_PASSWORD = "@Calekyzfx22";
+            
+            const STORAGE_KEYS = {
+                ACTIVE_SESSION: "kairon_active_session",
+                SESSION_TOKEN: "kairon_session_token",
+                IS_LOCKED: "kairon_is_locked",
+                IS_AUTHENTICATED: "kairon_authenticated"
+            };
+            
+            function generateSessionToken() {
+                return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 18);
+            }
+            
+            function revokeOtherSessions() {
+                const currentToken = localStorage.getItem(STORAGE_KEYS.SESSION_TOKEN);
+                localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION, currentToken);
+                return true;
+            }
+            
+            function validateSession() {
+                const currentToken = localStorage.getItem(STORAGE_KEYS.SESSION_TOKEN);
+                const activeSession = localStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION);
+                if (!currentToken || !activeSession || currentToken !== activeSession) {
+                    localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, "false");
+                    localStorage.setItem(STORAGE_KEYS.IS_LOCKED, "true");
+                    return false;
+                }
+                return true;
+            }
+            
+            function login(email, password) {
+                if (email === VALID_EMAIL && password === VALID_PASSWORD) {
+                    const isLocked = localStorage.getItem(STORAGE_KEYS.IS_LOCKED) === "true";
+                    if (isLocked) {
+                        return { success: false, locked: true, message: "System locked. Enter unlock code." };
+                    }
+                    const newToken = generateSessionToken();
+                    localStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, newToken);
+                    revokeOtherSessions();
+                    localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, "true");
+                    localStorage.setItem(STORAGE_KEYS.IS_LOCKED, "false");
+                    return { success: true };
+                }
+                return { success: false, locked: false, message: "Invalid email or password" };
+            }
+            
+            function unlockSystem(unlockCode) {
+                if (unlockCode === SECRET_UNLOCK_CODE) {
+                    localStorage.setItem(STORAGE_KEYS.IS_LOCKED, "false");
+                    const newToken = generateSessionToken();
+                    localStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, newToken);
+                    localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION, newToken);
+                    localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, "false");
+                    return true;
+                }
+                return false;
+            }
+            
+            function checkAuthStatus() {
+                const isAuthenticated = localStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === "true";
+                const isLocked = localStorage.getItem(STORAGE_KEYS.IS_LOCKED) === "true";
+                if (isLocked) return { authenticated: false, locked: true };
+                if (isAuthenticated && validateSession()) return { authenticated: true, locked: false };
+                if (isAuthenticated && !validateSession()) return { authenticated: false, locked: true };
+                return { authenticated: false, locked: false };
+            }
+            
+            function showLoginModal() {
+                const overlay = document.createElement('div');
+                overlay.className = 'login-overlay';
+                overlay.innerHTML = `<div class="login-modal"><h2><i class="fas fa-shield-alt mr-2"></i>KAIRON SECURE ACCESS</h2><input type="email" id="loginEmail" placeholder="Email Address"><input type="password" id="loginPassword" placeholder="Password"><button id="loginBtn">ACCESS PLATFORM</button><div id="loginError" class="error-message"></div></div>`;
+                document.body.appendChild(overlay);
+                document.getElementById('loginBtn').addEventListener('click', () => {
+                    const email = document.getElementById('loginEmail').value;
+                    const password = document.getElementById('loginPassword').value;
+                    const result = login(email, password);
+                    if (result.success) { overlay.remove(); initializeFullApp(); } 
+                    else if (result.locked) { overlay.remove(); showLockModal(); } 
+                    else { document.getElementById('loginError').textContent = result.message; }
+                });
+            }
+            
+            function showLockModal() {
+                const overlay = document.createElement('div');
+                overlay.className = 'lock-overlay';
+                overlay.innerHTML = `<div class="lock-modal"><h2><i class="fas fa-lock mr-2"></i>SYSTEM LOCKED</h2><div class="lock-warning"><i class="fas fa-exclamation-triangle mr-2"></i>Multiple login detected! Access blocked.</div><input type="text" id="unlockCode" placeholder="Enter Unlock Code" maxlength="8"><button id="unlockBtn">UNLOCK SYSTEM</button><div id="unlockError" class="error-message"></div></div>`;
+                document.body.appendChild(overlay);
+                document.getElementById('unlockBtn').addEventListener('click', () => {
+                    if (unlockSystem(document.getElementById('unlockCode').value)) { overlay.remove(); showLoginModal(); } 
+                    else { document.getElementById('unlockError').textContent = 'Invalid code.'; }
+                });
+            }
+            
+            function initializeFullApp() {
+                setTimeout(() => {
+                    const loader = document.getElementById('loader');
+                    const mainContent = document.getElementById('mainContent');
+                    if (loader && mainContent) {
+                        loader.style.opacity = '0';
+                        setTimeout(() => { loader.style.display = 'none'; mainContent.style.display = 'block'; startTradingApp(); }, 500);
+                    }
+                }, 2000);
+            }
+            
+            setTimeout(() => {
+                const status = checkAuthStatus();
+                if (status.authenticated) initializeFullApp();
+                else if (status.locked) showLockModal();
+                else showLoginModal();
+            }, 500);
+        })();
+
+        // Market name mapping
+        const MARKET_NAMES = {
+            'R_10': 'Volatility 10 Index', 'R_25': 'Volatility 25 Index', 'R_50': 'Volatility 50 Index', 'R_75': 'Volatility 75 Index', 'R_100': 'Volatility 100 Index',
+            '1HZ10V': 'Volatility 10 (1s) Index', '1HZ15V': 'Volatility 15 (1s) Index', '1HZ25V': 'Volatility 25 (1s) Index', '1HZ30V': 'Volatility 30 (1s) Index',
+            '1HZ50V': 'Volatility 50 (1s) Index', '1HZ75V': 'Volatility 75 (1s) Index', '1HZ90V': 'Volatility 90 (1s) Index', '1HZ100V': 'Volatility 100 (1s) Index'
+        };
+        const ALL_MARKETS = Object.keys(MARKET_NAMES);
+        
+        let ws = null, currentMarket = 'R_100', currentTradeType = 'rise_fall', digitsData = Array(10).fill(0), digitsHistory = [], priceData = [], signalHistory = [], voiceEnabled = true, voiceGender = 'male', lastVoiceTime = 0, voiceCooldown = 8000, currentSignal = null, lastConfidence = 0, selectedOverThreshold = null, selectedUnderThreshold = null, priceChart = null, digitsChart = null;
+        const MARKET_DATA = {};
+        ALL_MARKETS.forEach(m => { MARKET_DATA[m] = { digitsHistory: [], priceData: [], lastPrice: null, lastDigit: null, highPrice: null, lowPrice: null, change: 0, connected: false, greenBar: null, redBar: null, digitPercentages: Array(10).fill(0) }; });
+        
+        function getDigitFromPrice(p) { let s = p.toString(); if(s.includes('.')){ let m=s.match(/\.(\d)/); if(m) return parseInt(m[1]); } return Math.floor(Math.abs(p))%10; }
+        function speak(msg){ if(!voiceEnabled||!window.speechSynthesis) return; window.speechSynthesis.cancel(); let u=new SpeechSynthesisUtterance(msg); u.rate=0.85; u.pitch=voiceGender==='male'?1:1.3; window.speechSynthesis.speak(u); }
+        function playAlertSound(){ document.getElementById('alertSound')?.play().catch(e=>console.log); }
+        function getDigitColor(d){ return ['#ef4444','#f59e0b','#eab308','#84cc16','#10b981','#06b6d4','#3b82f6','#8b5cf6','#d946ef','#ec4899'][d%10]; }
+        
+        function calculateDigitPercentages(){ let t=digitsHistory.length||1, p=Array(10).fill(0); digitsHistory.forEach(d=>{if(d>=0&&d<=9)p[d]++;}); return p.map(c=>(c/t)*100); }
+        function findGreenBar(){ let p=calculateDigitPercentages(), maxInc=-1, green=null; for(let i=0;i<10;i++){ let inc=p[i]-(MARKET_DATA[currentMarket]?.prevPercentages?.[i]||p[i]); if(inc>maxInc&&inc>0.1){ maxInc=inc; green=i; } } MARKET_DATA[currentMarket].prevPercentages=[...p]; return green; }
+        function findRedBar(){ let p=calculateDigitPercentages(), maxDec=-1, red=null; for(let i=0;i<10;i++){ let dec=(MARKET_DATA[currentMarket]?.prevPercentages?.[i]||p[i])-p[i]; if(dec>maxDec&&dec>0.1){ maxDec=dec; red=i; } } return red; }
+        function updateMarketData(){ MARKET_DATA[currentMarket].digitsHistory=[...digitsHistory]; MARKET_DATA[currentMarket].priceData=[...priceData]; MARKET_DATA[currentMarket].digitPercentages=calculateDigitPercentages(); MARKET_DATA[currentMarket].greenBar=findGreenBar(); MARKET_DATA[currentMarket].redBar=findRedBar(); }
+        
+        function analyzeRiseFallStrategy(price){
+            if(priceData.length<14) return {signal:null, confidence:50, reasons:[]};
+            let prices=priceData, changes=[], gains=0, losses=0;
+            for(let i=1;i<prices.length;i++){ let c=prices[i]-prices[i-1]; if(c>=0) gains+=c; else losses-=c; }
+            let rsi=losses===0?100:100-(100/(1+(gains/14)/(losses/14)));
+            let signal=null, confidence=50, reasons=[];
+            if(rsi<30){ signal="RISE"; confidence=75+(30-rsi); reasons.push(`RSI oversold: ${rsi.toFixed(1)}`); }
+            else if(rsi>70){ signal="FALL"; confidence=75+(rsi-70); reasons.push(`RSI overbought: ${rsi.toFixed(1)}`); }
+            else if(rsi>55&&rsi<65){ signal=Math.random()>0.5?"RISE":"FALL"; confidence=55; reasons.push("Neutral RSI, use caution"); }
+            return {signal, confidence:Math.min(95,confidence), reasons};
+        }
+        
+        function analyzeSignals(price, digit){
+            updateMarketData();
+            let result = currentTradeType==='rise_fall'?analyzeRiseFallStrategy(price):{signal:null,confidence:50,reasons:[]};
+            if(result.signal && result.confidence>58 && currentSignal!==result.signal){
+                generateSignal(result.signal, result.confidence, result.reasons, Date.now()-lastVoiceTime>voiceCooldown);
+                currentSignal=result.signal; lastConfidence=result.confidence;
+                if(Date.now()-lastVoiceTime>voiceCooldown) lastVoiceTime=Date.now();
+            }
+        }
+        
+        function generateSignal(signal, confidence, reasons, speakNow=true){
+            let div=document.getElementById('currentSignal'), isBullish=signal==='RISE';
+            if(div) div.innerHTML=`<i class="fas ${isBullish?'fa-arrow-up':'fa-arrow-down'} text-2xl ${isBullish?'text-green-400':'text-red-400'} mb-1"></i><p class="text-xl font-bold ${isBullish?'text-green-400':'text-red-400'}">${signal}</p><p class="text-xs text-gray-300">Confidence: ${Math.round(confidence)}%</p><div class="text-xs text-gray-400 mt-1">${reasons.slice(0,2).map(r=>`<span class="inline-block px-1.5 py-0.5 bg-gray-800 rounded mr-1 mt-1">${r.substring(0,35)}</span>`).join('')}</div><p class="text-xs text-gray-500 mt-2">${MARKET_NAMES[currentMarket]} | ${new Date().toLocaleTimeString()}</p>`;
+            if(speakNow&&voiceEnabled){ speak(`${signal} signal with ${Math.round(confidence)} percent confidence`); playAlertSound(); }
+            signalHistory.unshift({signal, confidence, time:new Date().toLocaleTimeString(), market:MARKET_NAMES[currentMarket]});
+            if(signalHistory.length>15) signalHistory.pop();
+            let histDiv=document.getElementById('signalHistory');
+            if(histDiv) histDiv.innerHTML=signalHistory.map(s=>`<div class="flex justify-between items-center p-1.5 bg-gray-800/30 rounded text-[10px] md:text-xs"><div class="flex items-center"><i class="fas ${s.signal==='RISE'?'fa-arrow-up text-green-400':'fa-arrow-down text-red-400'} mr-1"></i><span class="font-semibold">${s.signal}</span></div><span class="text-gray-400 truncate max-w-[100px]">${s.market}</span><span class="text-gray-500">${s.time}</span><span class="${s.confidence>70?'text-green-400':'text-yellow-400'}">${Math.round(s.confidence)}%</span></div>`).join('');
+            let bar=document.getElementById('confidenceBar'), pct=document.getElementById('confidencePercent');
+            if(bar&&pct){ let c=Math.min(99,Math.max(1,confidence)); bar.style.width=`${c}%`; pct.textContent=`${Math.round(c)}%`; bar.style.background=c>=75?'linear-gradient(90deg,#22c55e,#eab308)':c>=60?'linear-gradient(90deg,#eab308,#f97316)':'linear-gradient(90deg,#f97316,#ef4444)'; }
+        }
+        
+        function initMarkets(){
+            let grid=document.getElementById('marketGrid');
+            if(grid) grid.innerHTML=ALL_MARKETS.map(m=>`<button class="market-btn px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs whitespace-nowrap transition ${currentMarket===m?'active bg-gradient-to-r from-blue-600 to-purple-600':'bg-gray-800/50'}" data-market="${m}"><i class="fas fa-chart-line mr-1"></i>${MARKET_NAMES[m]}</button>`).join('');
+            document.querySelectorAll('.market-btn').forEach(b=>b.addEventListener('click',()=>switchMarket(b.dataset.market)));
+            document.querySelectorAll('.trade-type-btn').forEach(b=>b.addEventListener('click',()=>{ document.querySelectorAll('.trade-type-btn').forEach(btn=>btn.classList.remove('active')); b.classList.add('active'); currentTradeType=b.dataset.type; document.getElementById('currentSignal').innerHTML='<div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Switched strategy, awaiting signals...</p>'; }));
+            document.querySelectorAll('[data-over]').forEach(el=>el.addEventListener('click',()=>{ selectedOverThreshold=parseInt(el.dataset.over); selectedUnderThreshold=null; document.querySelectorAll('[data-over],[data-under]').forEach(e=>e.classList.remove('selected','bg-purple-600')); el.classList.add('selected','bg-purple-600'); }));
+            document.querySelectorAll('[data-under]').forEach(el=>el.addEventListener('click',()=>{ selectedUnderThreshold=parseInt(el.dataset.under); selectedOverThreshold=null; document.querySelectorAll('[data-over],[data-under]').forEach(e=>e.classList.remove('selected','bg-purple-600')); el.classList.add('selected','bg-purple-600'); }));
+            document.getElementById('floatingAnalyseBtn')?.addEventListener('click',()=>{ if(priceData.length) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); });
+            document.getElementById('manualAnalysisBtn')?.addEventListener('click',()=>{ if(priceData.length) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); });
+        }
+        
+        function switchMarket(market){ currentMarket=market; document.getElementById('currentMarketDisplay').innerText=MARKET_NAMES[market]; if(MARKET_DATA[market]?.priceData.length){ priceData=MARKET_DATA[market].priceData; digitsHistory=MARKET_DATA[market].digitsHistory; updateUI(); } }
+        
+        function updateUI(){
+            let total=digitsHistory.length||1; digitsData=Array(10).fill(0); digitsHistory.forEach(d=>{if(d>=0&&d<=9)digitsData[d]++;});
+            document.getElementById('dominantDigit').innerText=digitsData.indexOf(Math.max(...digitsData));
+            let statsDiv=document.getElementById('digitsStats');
+            if(statsDiv) statsDiv.innerHTML=digitsData.map((c,i)=>`<div class="flex justify-between items-center text-[10px] md:text-xs"><span class="w-5">${i}</span><div class="flex-1 mx-2 bg-gray-700 rounded-full h-1.5"><div class="h-1.5 rounded-full" style="width: ${(c/total)*100}%; background: ${getDigitColor(i)}"></div></div><span class="w-8 text-right">${c}</span><span class="w-12 text-right text-gray-400">${((c/total)*100).toFixed(1)}%</span></div>`).join('');
+            if(priceData.length){ let lp=priceData[priceData.length-1]; document.getElementById('lastPrice').innerText=lp.toFixed(4); document.getElementById('highPrice').innerText=Math.max(...priceData).toFixed(4); document.getElementById('lowPrice').innerText=Math.min(...priceData).toFixed(4); if(priceData.length>1){ let ch=((lp-priceData[priceData.length-2])/priceData[priceData.length-2]*100); let el=document.getElementById('priceChange'); el.innerText=`${ch>=0?'+':''}${ch.toFixed(2)}%`; el.className=`font-bold ${ch>=0?'text-green-400':'text-red-400'}`; } }
+            let ldp=document.getElementById('ldpGrid'), last20=[...digitsHistory].slice(-20).reverse(); if(ldp) ldp.innerHTML=last20.map(d=>d!==undefined?`<div class="ldp-digit ldp-digit-${d}">${d}</div>`:'<div class="ldp-digit bg-gray-700">-</div>').join('');
+            document.getElementById('currentLastDigit').innerHTML=last20.length>0?last20[0]:'---';
+            for(let i=0;i<=6;i++){ let cnt=digitsHistory.filter(d=>d>i).length, pct=(cnt/total)*100; let el=document.getElementById(`over${i}Percent`); if(el) el.innerText=`${pct.toFixed(1)}%`; }
+            for(let i=3;i<=9;i++){ let cnt=digitsHistory.filter(d=>d<i).length, pct=(cnt/total)*100; let el=document.getElementById(`under${i}Percent`); if(el) el.innerText=`${pct.toFixed(1)}%`; }
+            if(digitsChart){ digitsChart.data.datasets[0].data=digitsData; digitsChart.update(); }
+        }
+        
+        function initCharts(){
+            let ctx=document.getElementById('priceChart')?.getContext('2d');
+            if(ctx) priceChart=new Chart(ctx,{type:'line',data:{labels:[],datasets:[{label:'Price',data:[],borderColor:'#667eea',backgroundColor:'rgba(102,126,234,0.1)',tension:0.4,fill:true,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#374151'},ticks:{color:'#9CA3AF'}},x:{display:false}}}});
+            let dctx=document.getElementById('digitsDonut')?.getContext('2d');
+            if(dctx) digitsChart=new Chart(dctx,{type:'doughnut',data:{labels:['0','1','2','3','4','5','6','7','8','9'],datasets:[{data:digitsData,backgroundColor:['#ef4444','#f59e0b','#eab308','#84cc16','#10b981','#06b6d4','#3b82f6','#8b5cf6','#d946ef','#ec4899'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',font:{size:9}},maxHeight:50}}}});
+        }
+        
+        function startSimulationMode(){ setInterval(()=>{ if(!ws||ws.readyState!==WebSocket.OPEN){ let simPrice=100+(Math.random()-0.5)*1.2; let digit=getDigitFromPrice(simPrice); priceData.push(simPrice); digitsHistory.push(digit); if(priceData.length>1500) priceData=priceData.slice(-1000); if(digitsHistory.length>1500) digitsHistory=digitsHistory.slice(-1000); updateUI(); if(priceChart){ priceChart.data.datasets[0].data=priceData.slice(-100); priceChart.update(); } analyzeSignals(simPrice,digit); } },2000); }
+        
+        function connectDeriv(){ startSimulationMode(); }
+        
+        function startTradingApp(){ initMarkets(); initCharts(); connectDeriv(); }
+    </script>
 </body>
 </html>
