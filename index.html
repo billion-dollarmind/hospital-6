@@ -292,7 +292,6 @@
         
         .tick-selector { background: #1a1a2e; border: 1px solid #667eea; border-radius: 8px; padding: 4px 8px; color: white; font-size: 12px; }
         
-        /* Mobile tab buttons - FIXED to be visible */
         .tab-buttons-container {
             display: flex;
             gap: 8px;
@@ -334,6 +333,15 @@
                 font-size: 10px;
             }
         }
+        
+        .signal-alert {
+            animation: flashSignal 0.5s ease-in-out 3;
+        }
+        
+        @keyframes flashSignal {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.02); }
+        }
     </style>
 </head>
 <body>
@@ -368,7 +376,6 @@
         
         <div class="pt-20 md:pt-24 pb-2 px-4">
             <div class="container mx-auto">
-                <!-- FIXED: Visible tab buttons on mobile -->
                 <div class="tab-buttons-container">
                     <button class="tab-btn active" data-tab="deriv">
                         <i class="fas fa-chart-line mr-2"></i>Deriv Analysis
@@ -562,7 +569,7 @@
         };
         const ALL_MARKETS = Object.keys(MARKET_NAMES);
         
-        let ws = null, currentMarket = 'R_100', currentTradeType = 'rise_fall', digitsData = Array(10).fill(0), digitsHistory = [], priceData = [], signalHistory = [], voiceEnabled = true, voiceGender = 'male', lastVoiceTime = 0, voiceCooldown = 5000, currentSignal = null, lastConfidence = 0, priceChart = null, digitsChart = null, currentSubscriptionId = null;
+        let ws = null, currentMarket = 'R_100', currentTradeType = 'rise_fall', digitsData = Array(10).fill(0), digitsHistory = [], priceData = [], signalHistory = [], voiceEnabled = true, voiceGender = 'male', lastVoiceTime = 0, voiceCooldown = 3000, currentSignal = null, lastConfidence = 0, priceChart = null, digitsChart = null, currentSubscriptionId = null, isAnalyzing = false;
         const MARKET_DATA = {};
         ALL_MARKETS.forEach(m => { MARKET_DATA[m] = { digitsHistory: [], priceData: [], digitPercentages: Array(10).fill(0), prevPercentages: Array(10).fill(0) }; });
         
@@ -575,14 +582,23 @@
             return Math.floor(Math.abs(p)) % 10; 
         }
         
-        function speak(msg) { 
-            if(!voiceEnabled || !window.speechSynthesis) return; 
-            window.speechSynthesis.cancel(); 
+        function speak(msg, force = false) { 
+            if(!voiceEnabled && !force) return; 
+            if(!window.speechSynthesis) return;
+            
+            // Cancel any ongoing speech
+            window.speechSynthesis.cancel();
+            
             let u = new SpeechSynthesisUtterance(msg); 
             u.rate = 0.9; 
             u.pitch = voiceGender === 'male' ? 1 : 1.3; 
             u.volume = 1;
-            window.speechSynthesis.speak(u); 
+            
+            // Add slight delay to ensure clean speech
+            setTimeout(() => {
+                window.speechSynthesis.speak(u);
+            }, 100);
+            
             console.log("Speaking:", msg);
         }
         
@@ -603,37 +619,21 @@
             return p.map(c => (c / total) * 100); 
         }
         
-        function findGreenBar() { 
-            let p = calculateDigitPercentages(), maxInc = -1, green = null; 
-            for(let i = 0; i < 10; i++) { 
-                let inc = p[i] - (MARKET_DATA[currentMarket]?.prevPercentages?.[i] || p[i]); 
-                if(inc > maxInc && inc > 0.1) { maxInc = inc; green = i; } 
-            } 
-            MARKET_DATA[currentMarket].prevPercentages = [...p]; 
-            return green; 
-        }
-        
-        function findRedBar() { 
-            let p = calculateDigitPercentages(), maxDec = -1, red = null; 
-            for(let i = 0; i < 10; i++) { 
-                let dec = (MARKET_DATA[currentMarket]?.prevPercentages?.[i] || p[i]) - p[i]; 
-                if(dec > maxDec && dec > 0.1) { maxDec = dec; red = i; } 
-            } 
-            return red; 
-        }
-        
         function updateMarketData() { 
             MARKET_DATA[currentMarket].digitsHistory = [...digitsHistory]; 
             MARKET_DATA[currentMarket].priceData = [...priceData]; 
             MARKET_DATA[currentMarket].digitPercentages = calculateDigitPercentages(); 
-            MARKET_DATA[currentMarket].greenBar = findGreenBar(); 
-            MARKET_DATA[currentMarket].redBar = findRedBar(); 
         }
         
-        function analyzeRiseFallStrategy(price) {
-            if(priceData.length < 20) return { signal: null, confidence: 50, reasons: ["Collecting more data..."] };
+        // ============ ADVANCED STRATEGY ANALYSIS ============
+        function analyzeStrategy(price, digit) {
+            if(priceData.length < 30) return { signal: null, confidence: 0, reasons: ["Collecting enough data..."] };
             
-            // Calculate RSI
+            let reasons = [];
+            let confidence = 50;
+            let signal = null;
+            
+            // 1. RSI Analysis (14-period)
             let prices = priceData.slice(-20);
             let gains = 0, losses = 0;
             for(let i = 1; i < prices.length; i++) { 
@@ -647,34 +647,96 @@
             let rsi = 100 - (100 / (1 + rs));
             rsi = Math.min(100, Math.max(0, rsi));
             
-            // Calculate MACD approximation
+            // 2. MACD Analysis
             let ema12 = calculateEMA(prices, 12);
             let ema26 = calculateEMA(prices, 26);
             let macd = ema12 - ema26;
+            let macdSignal = calculateEMA([macd], 9);
             
-            let signal = null, confidence = 50, reasons = [];
+            // 3. Moving Average Crossover
+            let sma5 = calculateSMA(prices.slice(-5));
+            let sma10 = calculateSMA(prices.slice(-10));
+            let sma20 = calculateSMA(prices.slice(-20));
             
-            if(rsi < 30) { 
-                signal = "RISE"; 
-                confidence = 75 + (30 - rsi); 
+            // 4. Bollinger Bands
+            let bb = calculateBollingerBands(prices.slice(-20));
+            
+            // 5. Digit Pattern Analysis
+            let last5Digits = digitsHistory.slice(-5);
+            let digitFrequency = {};
+            last5Digits.forEach(d => { digitFrequency[d] = (digitFrequency[d] || 0) + 1; });
+            let repeatingPattern = Object.values(digitFrequency).some(v => v >= 3);
+            
+            // 6. Volatility Analysis
+            let volatility = calculateVolatility(prices.slice(-10));
+            
+            // RSI Signal
+            if(rsi < 25) {
+                signal = "RISE";
+                confidence += 30;
+                reasons.push(`RSI extremely oversold: ${rsi.toFixed(1)}`);
+            } else if(rsi < 30) {
+                signal = "RISE";
+                confidence += 20;
                 reasons.push(`RSI oversold: ${rsi.toFixed(1)}`);
-                if(macd < 0) {
-                    confidence += 10;
-                    reasons.push("MACD bullish divergence");
-                }
-            } 
-            else if(rsi > 70) { 
-                signal = "FALL"; 
-                confidence = 75 + (rsi - 70); 
+            } else if(rsi > 75) {
+                signal = "FALL";
+                confidence += 30;
+                reasons.push(`RSI extremely overbought: ${rsi.toFixed(1)}`);
+            } else if(rsi > 70) {
+                signal = "FALL";
+                confidence += 20;
                 reasons.push(`RSI overbought: ${rsi.toFixed(1)}`);
-                if(macd > 0) {
-                    confidence += 10;
-                    reasons.push("MACD bearish divergence");
-                }
             }
             
+            // MACD Signal
+            if(macd < macdSignal && macdSignal < 0) {
+                if(signal === "RISE") confidence += 15;
+                else if(!signal) { signal = "RISE"; confidence += 20; }
+                reasons.push("MACD bullish divergence");
+            } else if(macd > macdSignal && macdSignal > 0) {
+                if(signal === "FALL") confidence += 15;
+                else if(!signal) { signal = "FALL"; confidence += 20; }
+                reasons.push("MACD bearish divergence");
+            }
+            
+            // Moving Average Crossover
+            if(sma5 > sma10 && sma10 > sma20) {
+                if(signal === "RISE") confidence += 10;
+                else if(!signal) { signal = "RISE"; confidence += 15; }
+                reasons.push("Bullish MA alignment");
+            } else if(sma5 < sma10 && sma10 < sma20) {
+                if(signal === "FALL") confidence += 10;
+                else if(!signal) { signal = "FALL"; confidence += 15; }
+                reasons.push("Bearish MA alignment");
+            }
+            
+            // Bollinger Bands
+            if(bb.upper && price <= bb.lower) {
+                if(signal === "RISE") confidence += 15;
+                else if(!signal) { signal = "RISE"; confidence += 20; }
+                reasons.push("Price at lower Bollinger Band");
+            } else if(bb.upper && price >= bb.upper) {
+                if(signal === "FALL") confidence += 15;
+                else if(!signal) { signal = "FALL"; confidence += 20; }
+                reasons.push("Price at upper Bollinger Band");
+            }
+            
+            // Digit Pattern
+            if(repeatingPattern && signal === "RISE") confidence += 10;
+            if(repeatingPattern && signal === "FALL") confidence += 10;
+            
+            // Volatility adjustment
+            if(volatility > 0.5 && signal) confidence += 5;
+            
             confidence = Math.min(95, Math.max(50, confidence));
-            return { signal, confidence: Math.round(confidence), reasons };
+            
+            // Generate immediate signal if confidence is high enough
+            if(signal && confidence > 65 && currentSignal !== signal) {
+                return { signal, confidence: Math.round(confidence), reasons };
+            }
+            
+            return { signal: null, confidence: Math.round(confidence), reasons };
         }
         
         function calculateEMA(prices, period) {
@@ -687,46 +749,70 @@
             return ema;
         }
         
-        function analyzeSignals(price, digit) {
+        function calculateSMA(prices) {
+            if(prices.length === 0) return 0;
+            return prices.reduce((a, b) => a + b, 0) / prices.length;
+        }
+        
+        function calculateBollingerBands(prices) {
+            if(prices.length < 5) return { upper: null, lower: null };
+            let sma = calculateSMA(prices);
+            let variance = prices.reduce((sum, price) => sum + Math.pow(price - sma, 2), 0) / prices.length;
+            let stdDev = Math.sqrt(variance);
+            return { upper: sma + (2 * stdDev), lower: sma - (2 * stdDev) };
+        }
+        
+        function calculateVolatility(prices) {
+            if(prices.length < 2) return 0;
+            let returns = [];
+            for(let i = 1; i < prices.length; i++) {
+                returns.push((prices[i] - prices[i-1]) / prices[i-1]);
+            }
+            let avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+            let variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
+            return Math.sqrt(variance);
+        }
+        
+        function analyzeSignals(price, digit, isManual = false) {
             updateMarketData();
-            let result = { signal: null, confidence: 50, reasons: [] };
-            
-            if(currentTradeType === 'rise_fall') {
-                result = analyzeRiseFallStrategy(price);
-            }
-            
-            if(result.signal && result.confidence > 60 && currentSignal !== result.signal) {
-                generateSignal(result.signal, result.confidence, result.reasons);
-                currentSignal = result.signal;
-                lastConfidence = result.confidence;
-            }
+            let result = analyzeStrategy(price, digit);
             
             // Update indicators display
             updateIndicators();
+            
+            if(result.signal && result.confidence > 65 && (currentSignal !== result.signal || isManual)) {
+                generateSignal(result.signal, result.confidence, result.reasons, true);
+                currentSignal = result.signal;
+                lastConfidence = result.confidence;
+                return true;
+            }
+            return false;
         }
         
         function updateIndicators() {
-            if(priceData.length < 20) return;
-            let prices = priceData.slice(-20);
+            if(priceData.length < 30) return;
+            let prices = priceData.slice(-30);
             let rsi = calculateRSI(prices);
             let ema12 = calculateEMA(prices, 12);
             let ema26 = calculateEMA(prices, 26);
+            let sma5 = calculateSMA(prices.slice(-5));
+            let sma20 = calculateSMA(prices.slice(-20));
             let lastPrice = prices[prices.length - 1];
             
             let indicatorsDiv = document.getElementById('indicators');
             if(indicatorsDiv) {
                 indicatorsDiv.innerHTML = `
                     <div class="flex justify-between"><span>RSI (14):</span><span class="${rsi < 30 ? 'text-green-400' : (rsi > 70 ? 'text-red-400' : 'text-yellow-400')}">${rsi.toFixed(1)}</span></div>
-                    <div class="flex justify-between"><span>EMA 12:</span><span>${ema12.toFixed(4)}</span></div>
-                    <div class="flex justify-between"><span>EMA 26:</span><span>${ema26.toFixed(4)}</span></div>
-                    <div class="flex justify-between"><span>Price vs EMA:</span><span class="${lastPrice > ema12 ? 'text-green-400' : 'text-red-400'}">${lastPrice > ema12 ? 'Above' : 'Below'}</span></div>
+                    <div class="flex justify-between"><span>MACD:</span><span class="${ema12 > ema26 ? 'text-green-400' : 'text-red-400'}">${(ema12 - ema26).toFixed(4)}</span></div>
+                    <div class="flex justify-between"><span>SMA 5/20:</span><span class="${sma5 > sma20 ? 'text-green-400' : 'text-red-400'}">${sma5 > sma20 ? 'Bullish' : 'Bearish'}</span></div>
+                    <div class="flex justify-between"><span>Volatility:</span><span>${calculateVolatility(prices.slice(-10)).toFixed(3)}</span></div>
                 `;
             }
         }
         
         function calculateRSI(prices) {
             let gains = 0, losses = 0;
-            for(let i = 1; i < prices.length; i++) { 
+            for(let i = 1; i < Math.min(prices.length, 15); i++) { 
                 let change = prices[i] - prices[i-1]; 
                 if(change >= 0) gains += change; 
                 else losses -= change; 
@@ -741,19 +827,23 @@
             let div = document.getElementById('currentSignal');
             let isBullish = signal === 'RISE';
             
+            // Add animation to signal div
             if(div) {
+                div.classList.add('signal-alert');
+                setTimeout(() => div.classList.remove('signal-alert'), 1500);
+                
                 div.innerHTML = `
                     <i class="fas ${isBullish ? 'fa-arrow-up' : 'fa-arrow-down'} text-3xl ${isBullish ? 'text-green-400' : 'text-red-400'} mb-2 animate-pulse"></i>
-                    <p class="text-2xl font-bold ${isBullish ? 'text-green-400' : 'text-red-400'}">${signal}</p>
+                    <p class="text-2xl font-bold ${isBullish ? 'text-green-400' : 'text-red-400'}">${signal} SIGNAL!</p>
                     <p class="text-sm text-gray-300 mt-1">Confidence: ${Math.round(confidence)}%</p>
-                    <div class="text-xs text-gray-400 mt-2">${reasons.slice(0, 2).map(r => `<span class="inline-block px-2 py-1 bg-gray-800 rounded mr-1 mt-1">${r}</span>`).join('')}</div>
+                    <div class="text-xs text-gray-400 mt-2">${reasons.slice(0, 3).map(r => `<span class="inline-block px-2 py-1 bg-gray-800 rounded mr-1 mt-1">${r}</span>`).join('')}</div>
                     <p class="text-xs text-gray-500 mt-2">${MARKET_NAMES[currentMarket]} | ${new Date().toLocaleTimeString()}</p>
                 `;
             }
             
-            // Voice alert
-            if(speakNow && voiceEnabled) {
-                let message = `${signal} signal with ${Math.round(confidence)} percent confidence. ${reasons[0] || ''}`;
+            // Voice alert with custom message
+            if(speakNow && voiceEnabled && (Date.now() - lastVoiceTime > voiceCooldown)) {
+                let message = `KAIRON Quantum Analysis detected a ${signal} signal with ${Math.round(confidence)} percent confidence. ${reasons[0] || 'Get your KAIRON master bot ready'}`;
                 speak(message);
                 playAlertSound();
                 lastVoiceTime = Date.now();
@@ -764,7 +854,8 @@
                 signal: signal,
                 confidence: confidence,
                 time: new Date().toLocaleTimeString(),
-                market: MARKET_NAMES[currentMarket]
+                market: MARKET_NAMES[currentMarket],
+                reasons: reasons.slice(0, 2)
             });
             if(signalHistory.length > 20) signalHistory.pop();
             
@@ -776,7 +867,7 @@
                             <i class="fas ${s.signal === 'RISE' ? 'fa-arrow-up text-green-400' : 'fa-arrow-down text-red-400'}"></i>
                             <span class="font-semibold">${s.signal}</span>
                         </div>
-                        <span class="text-gray-400 text-xs">${s.market.substring(0, 15)}</span>
+                        <span class="text-gray-400 text-xs truncate max-w-[100px]">${s.market.substring(0, 12)}</span>
                         <span class="text-gray-500 text-xs">${s.time}</span>
                         <span class="${s.confidence > 70 ? 'text-green-400' : 'text-yellow-400'} font-bold">${Math.round(s.confidence)}%</span>
                     </div>
@@ -847,6 +938,11 @@
                 }
             }
             initMarketDropdown();
+            
+            // Announce market change
+            if(voiceEnabled) {
+                speak(`Switched to ${MARKET_NAMES[market]}. KAIRON Quantum Analysis ready.`);
+            }
         }
         
         function updateConnectionStatus(connected, message) {
@@ -860,11 +956,9 @@
         
         function subscribeToMarket(marketSymbol) {
             if(!ws || ws.readyState !== WebSocket.OPEN) return;
-            
             if(currentSubscriptionId) {
                 ws.send(JSON.stringify({ forget: currentSubscriptionId, req_id: Date.now() }));
             }
-            
             ws.send(JSON.stringify({ ticks: marketSymbol, subscribe: 1, req_id: Date.now() }));
         }
         
@@ -940,6 +1034,7 @@
                 priceChart.update();
             }
             
+            // Auto-analyze on each tick
             analyzeSignals(price, digitsHistory[digitsHistory.length - 1]);
         }
         
@@ -1081,18 +1176,46 @@
                     document.querySelectorAll('.trade-type-btn').forEach(btn => btn.classList.remove('active'));
                     b.classList.add('active');
                     currentTradeType = b.dataset.type;
-                    currentSignal = null; // Reset to allow new signals
+                    currentSignal = null;
                     document.getElementById('currentSignal').innerHTML = '<div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Switched strategy, awaiting signals...</p>';
                     if(priceData.length > 0) analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]);
                 });
             });
             
+            // Floating Analyse Button - with custom voice announcement
             document.getElementById('floatingAnalyseBtn')?.addEventListener('click', () => {
-                if(priceData.length) analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]);
+                if(priceData.length) {
+                    // Custom voice announcement
+                    speak("KAIRON Quantum Analysis has been activated. Signal will be given shortly. Get your KAIRON master bot ready.", true);
+                    
+                    // Run analysis
+                    let signalGenerated = analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1], true);
+                    
+                    // Flash button
+                    let btn = document.getElementById('floatingAnalyseBtn');
+                    btn.style.transform = 'scale(1.1)';
+                    setTimeout(() => { btn.style.transform = ''; }, 300);
+                    
+                    // Also show notification
+                    const signalDiv = document.getElementById('currentSignal');
+                    if(signalDiv && !signalGenerated) {
+                        signalDiv.innerHTML = `
+                            <i class="fas fa-chart-line text-3xl text-purple-400 mb-2"></i>
+                            <p class="text-sm font-bold">Scanning Market...</p>
+                            <p class="text-xs text-gray-400 mt-1">Analyzing patterns for ${MARKET_NAMES[currentMarket]}</p>
+                        `;
+                        setTimeout(() => {
+                            analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1], true);
+                        }, 2000);
+                    }
+                }
             });
             
             document.getElementById('manualAnalysisBtn')?.addEventListener('click', () => {
-                if(priceData.length) analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]);
+                if(priceData.length) {
+                    speak("Running manual market analysis now.", true);
+                    analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1], true);
+                }
             });
             
             document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1108,12 +1231,12 @@
             document.getElementById('voiceToggle')?.addEventListener('click', () => {
                 voiceEnabled = !voiceEnabled;
                 document.getElementById('voiceToggle').innerHTML = voiceEnabled ? '<i class="fas fa-volume-up text-xs"></i>' : '<i class="fas fa-volume-mute text-xs"></i>';
-                speak(voiceEnabled ? "Voice alerts enabled" : "Voice alerts disabled");
+                speak(voiceEnabled ? "Voice alerts enabled. KAIRON system ready." : "Voice alerts disabled");
             });
             
             document.getElementById('voiceGender')?.addEventListener('change', (e) => {
                 voiceGender = e.target.value;
-                speak(`Voice changed to ${voiceGender}`);
+                speak(`Voice changed to ${voiceGender}. KAIRON Quantum Analysis active.`);
             });
             
             document.getElementById('refreshDataBtn')?.addEventListener('click', refreshMarketData);
@@ -1137,7 +1260,11 @@
             initMarkets();
             initCharts();
             connectDeriv();
-            speak("KAIRON trading analysis system activated. Waiting for market data.");
+            
+            // Initial voice announcement
+            setTimeout(() => {
+                speak("KAIRON Quantum Analysis System activated. Welcome back. Monitoring all markets for trading signals.", true);
+            }, 3000);
         }
         
         window.addEventListener("beforeunload", () => { if(ws && ws.readyState === WebSocket.OPEN) ws.close(); });
