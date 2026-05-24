@@ -50,7 +50,6 @@
             50% { box-shadow: 0 0 25px rgba(102, 126, 234, 0.8); }
         }
         
-        /* Market Dropdown Styles - NEW but safe */
         .market-dropdown {
             position: relative;
             display: inline-block;
@@ -343,7 +342,6 @@
         
         <div id="derivTab" class="tab-content">
             <div class="container mx-auto px-4 pb-8">
-                <!-- Market Dropdown instead of scrollable grid -->
                 <div class="mb-4 flex flex-wrap gap-2 items-center justify-between">
                     <div class="flex items-center gap-3 flex-wrap">
                         <div class="market-dropdown">
@@ -397,7 +395,7 @@
     <audio id="alertSound" preload="auto"><source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" type="audio/mpeg"></audio>
 
     <script>
-        // ============ SECURE LOGIN SYSTEM - COMPLETELY UNCHANGED ============
+        // ============ SECURE LOGIN SYSTEM ============
         (function() {
             const SECRET_UNLOCK_CODE = "42055578";
             const VALID_EMAIL = "caleborenge08@gmail.com";
@@ -521,7 +519,7 @@
         };
         const ALL_MARKETS = Object.keys(MARKET_NAMES);
         
-        let ws = null, currentMarket = 'R_100', currentTradeType = 'rise_fall', digitsData = Array(10).fill(0), digitsHistory = [], priceData = [], signalHistory = [], voiceEnabled = true, voiceGender = 'male', lastVoiceTime = 0, voiceCooldown = 8000, currentSignal = null, lastConfidence = 0, selectedOverThreshold = null, selectedUnderThreshold = null, priceChart = null, digitsChart = null;
+        let ws = null, currentMarket = 'R_100', currentTradeType = 'rise_fall', digitsData = Array(10).fill(0), digitsHistory = [], priceData = [], signalHistory = [], voiceEnabled = true, voiceGender = 'male', lastVoiceTime = 0, voiceCooldown = 8000, currentSignal = null, lastConfidence = 0, selectedOverThreshold = null, selectedUnderThreshold = null, priceChart = null, digitsChart = null, currentSubscriptionId = null;
         const MARKET_DATA = {};
         ALL_MARKETS.forEach(m => { MARKET_DATA[m] = { digitsHistory: [], priceData: [], lastPrice: null, lastDigit: null, highPrice: null, lowPrice: null, change: 0, connected: false, greenBar: null, redBar: null, digitPercentages: Array(10).fill(0) }; });
         
@@ -569,7 +567,6 @@
             if(bar&&pct){ let c=Math.min(99,Math.max(1,confidence)); bar.style.width=`${c}%`; pct.textContent=`${Math.round(c)}%`; bar.style.background=c>=75?'linear-gradient(90deg,#22c55e,#eab308)':c>=60?'linear-gradient(90deg,#eab308,#f97316)':'linear-gradient(90deg,#f97316,#ef4444)'; }
         }
         
-        // Initialize dropdown menu
         function initMarketDropdown() {
             const content = document.getElementById('marketDropdownContent');
             if (content) {
@@ -588,7 +585,6 @@
                 });
             }
             
-            // Toggle dropdown
             const btn = document.getElementById('marketDropdownBtn');
             const dropdown = document.getElementById('marketDropdownContent');
             btn?.addEventListener('click', (e) => {
@@ -605,16 +601,228 @@
             currentMarket = market; 
             document.getElementById('currentMarketDisplay').innerText = MARKET_NAMES[market];
             document.getElementById('selectedMarketText').innerText = MARKET_NAMES[market];
-            if(MARKET_DATA[market]?.priceData.length){ 
-                priceData = MARKET_DATA[market].priceData; 
-                digitsHistory = MARKET_DATA[market].digitsHistory; 
+            
+            // Load stored data for this market or fetch new data
+            if(MARKET_DATA[market]?.priceData && MARKET_DATA[market].priceData.length > 0){ 
+                priceData = [...MARKET_DATA[market].priceData]; 
+                digitsHistory = [...MARKET_DATA[market].digitsHistory]; 
                 updateUI(); 
                 if(priceChart) {
                     priceChart.data.datasets[0].data = priceData.slice(-100);
                     priceChart.update();
                 }
+            } else {
+                // Fetch data for new market
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    getTickHistory(market);
+                    subscribeToMarket(market);
+                }
             }
             initMarketDropdown();
+        }
+        
+        function updateConnectionStatus(connected, message) {
+            const statusDiv = document.getElementById("connectionStatus");
+            if (statusDiv) {
+                statusDiv.innerHTML = connected ? 
+                    `<div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div><span class="text-xs">${message}</span>` :
+                    `<div class="w-2 h-2 rounded-full bg-red-500"></div><span class="text-xs">${message}</span>`;
+            }
+        }
+        
+        function subscribeToMarket(marketSymbol) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                console.log("WebSocket not ready, will subscribe when connected");
+                return;
+            }
+            
+            if (currentSubscriptionId) {
+                const forgetReq = {
+                    forget: currentSubscriptionId,
+                    req_id: Date.now()
+                };
+                ws.send(JSON.stringify(forgetReq));
+            }
+            
+            const subscribeReq = {
+                ticks: marketSymbol,
+                subscribe: 1,
+                req_id: Date.now()
+            };
+            ws.send(JSON.stringify(subscribeReq));
+        }
+        
+        function getTickHistory(marketSymbol) {
+            const tickCount = parseInt(document.getElementById("tickSelector")?.value || "1000");
+            
+            const historyReq = {
+                ticks_history: marketSymbol,
+                adjust_start_time: 1,
+                count: tickCount,
+                end: "latest",
+                start: 1,
+                style: "ticks",
+                req_id: Date.now()
+            };
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(historyReq));
+            }
+        }
+        
+        function processHistoricalData(prices) {
+            if (!prices || prices.length === 0) return;
+            
+            priceData = [];
+            digitsHistory = [];
+            
+            prices.forEach(price => {
+                if (!isNaN(price) && price > 0) {
+                    priceData.push(price);
+                    const digit = getDigitFromPrice(price);
+                    digitsHistory.push(digit);
+                }
+            });
+            
+            if (priceData.length > 1000) {
+                priceData = priceData.slice(-1000);
+                digitsHistory = digitsHistory.slice(-1000);
+            }
+            
+            updateUI();
+            if (priceChart) {
+                priceChart.data.datasets[0].data = priceData.slice(-100);
+                priceChart.update();
+            }
+            
+            updateMarketData();
+            
+            if (priceData.length > 0) {
+                analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]);
+            }
+        }
+        
+        function handleNewTick(tick) {
+            const price = parseFloat(tick.quote);
+            if (isNaN(price) || price <= 0) return;
+            
+            if (tick.subscription && !currentSubscriptionId) {
+                currentSubscriptionId = tick.subscription.id;
+            }
+            
+            priceData.push(price);
+            const digit = getDigitFromPrice(price);
+            digitsHistory.push(digit);
+            
+            if (priceData.length > 1000) {
+                priceData = priceData.slice(-1000);
+                digitsHistory = digitsHistory.slice(-1000);
+            }
+            
+            MARKET_DATA[currentMarket].priceData = [...priceData];
+            MARKET_DATA[currentMarket].digitsHistory = [...digitsHistory];
+            
+            updateUI();
+            
+            if (priceChart) {
+                priceChart.data.datasets[0].data = priceData.slice(-100);
+                priceChart.update();
+            }
+            
+            analyzeSignals(price, digit);
+        }
+        
+        function refreshMarketData() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                getTickHistory(currentMarket);
+                
+                const refreshBtn = document.getElementById("refreshDataBtn");
+                if (refreshBtn) {
+                    const originalHtml = refreshBtn.innerHTML;
+                    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading...';
+                    refreshBtn.disabled = true;
+                    setTimeout(() => {
+                        refreshBtn.innerHTML = originalHtml;
+                        refreshBtn.disabled = false;
+                    }, 2000);
+                }
+            } else {
+                console.log("WebSocket not connected, attempting to reconnect...");
+                connectDeriv();
+            }
+        }
+        
+        function connectDeriv() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
+            
+            const derivWsUrl = "wss://ws.binaryws.com/websockets/v3?app_id=1089";
+            
+            ws = new WebSocket(derivWsUrl);
+            
+            ws.onopen = () => {
+                console.log("WebSocket connected to Deriv");
+                updateConnectionStatus(true, "Connected to Deriv");
+                
+                getTickHistory(currentMarket);
+                subscribeToMarket(currentMarket);
+                
+                startHeartbeat();
+            };
+            
+            function startHeartbeat() {
+                setInterval(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ ping: 1 }));
+                    }
+                }, 30000);
+            }
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.pong) return;
+                    
+                    if (data.tick && data.tick.quote) {
+                        handleNewTick(data.tick);
+                    }
+                    
+                    if (data.subscription && data.subscription.id) {
+                        console.log("Subscribed to:", data.subscription.id);
+                    }
+                    
+                    if (data.history && data.history.prices) {
+                        const prices = data.history.prices.map(p => parseFloat(p));
+                        processHistoricalData(prices);
+                    }
+                    
+                    if (data.error) {
+                        console.error("Deriv API error:", data.error);
+                        updateConnectionStatus(false, data.error.message || "API Error");
+                    }
+                } catch (err) {
+                    console.error("Error parsing message:", err);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error("WebSocket error:", error);
+                updateConnectionStatus(false, "Connection error");
+            };
+            
+            ws.onclose = () => {
+                console.log("WebSocket disconnected");
+                updateConnectionStatus(false, "Disconnected");
+                
+                setTimeout(() => {
+                    if (document.body.contains(document.getElementById("mainContent"))) {
+                        console.log("Attempting to reconnect...");
+                        connectDeriv();
+                    }
+                }, 5000);
+            };
         }
         
         function initMarkets(){
@@ -625,6 +833,51 @@
             document.querySelectorAll('[data-under]').forEach(el=>el.addEventListener('click',()=>{ selectedUnderThreshold=parseInt(el.dataset.under); selectedOverThreshold=null; document.querySelectorAll('[data-over],[data-under]').forEach(e=>e.classList.remove('selected','bg-purple-600')); el.classList.add('selected','bg-purple-600'); }));
             document.getElementById('floatingAnalyseBtn')?.addEventListener('click',()=>{ if(priceData.length) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); });
             document.getElementById('manualAnalysisBtn')?.addEventListener('click',()=>{ if(priceData.length) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); });
+            
+            // Tab switching
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const tab = btn.dataset.tab;
+                    document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+                    document.getElementById(`${tab}Tab`).classList.remove('hidden');
+                });
+            });
+            
+            // Voice toggle
+            document.getElementById('voiceToggle')?.addEventListener('click', () => {
+                voiceEnabled = !voiceEnabled;
+                document.getElementById('voiceToggle').innerHTML = voiceEnabled ? '<i class="fas fa-volume-up text-xs"></i>' : '<i class="fas fa-volume-mute text-xs"></i>';
+            });
+            
+            document.getElementById('voiceGender')?.addEventListener('change', (e) => {
+                voiceGender = e.target.value;
+            });
+            
+            // Refresh button
+            document.getElementById('refreshDataBtn')?.addEventListener('click', refreshMarketData);
+            
+            // Tick selector change
+            document.getElementById('tickSelector')?.addEventListener('change', () => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    getTickHistory(currentMarket);
+                }
+            });
+            
+            // MT5 Form
+            document.getElementById('mt5Form')?.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const login = document.getElementById('mt5Login').value;
+                const password = document.getElementById('mt5Password').value;
+                const server = document.getElementById('mt5Server').value;
+                if(login && password && server) {
+                    alert(`Credentials sent to admin! You will be contacted on WhatsApp shortly.`);
+                    document.getElementById('mt5Form').reset();
+                } else {
+                    alert('Please fill all fields');
+                }
+            });
         }
         
         function updateUI(){
@@ -647,11 +900,17 @@
             if(dctx) digitsChart=new Chart(dctx,{type:'doughnut',data:{labels:['0','1','2','3','4','5','6','7','8','9'],datasets:[{data:digitsData,backgroundColor:['#ef4444','#f59e0b','#eab308','#84cc16','#10b981','#06b6d4','#3b82f6','#8b5cf6','#d946ef','#ec4899'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',font:{size:9}},maxHeight:50}}}});
         }
         
-        function startSimulationMode(){ setInterval(()=>{ if(!ws||ws.readyState!==WebSocket.OPEN){ let simPrice=100+(Math.random()-0.5)*1.2; let digit=getDigitFromPrice(simPrice); priceData.push(simPrice); digitsHistory.push(digit); if(priceData.length>1500) priceData=priceData.slice(-1000); if(digitsHistory.length>1500) digitsHistory=digitsHistory.slice(-1000); updateUI(); if(priceChart){ priceChart.data.datasets[0].data=priceData.slice(-100); priceChart.update(); } analyzeSignals(simPrice,digit); } },2000); }
+        function startTradingApp() {
+            initMarkets();
+            initCharts();
+            connectDeriv();
+        }
         
-        function connectDeriv(){ startSimulationMode(); }
-        
-        function startTradingApp(){ initMarkets(); initCharts(); connectDeriv(); }
+        window.addEventListener("beforeunload", () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
+        });
     </script>
 </body>
 </html>
