@@ -40,13 +40,7 @@
             animation: glowPulse 2s ease-in-out infinite;
         }
         
-        .floating-analyse-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            animation: none;
-        }
-        
-        .floating-analyse-btn:hover:not(:disabled) {
+        .floating-analyse-btn:hover {
             transform: scale(1.05);
             box-shadow: 0 0 30px rgba(102, 126, 234, 0.8);
         }
@@ -634,67 +628,79 @@
             MARKET_DATA[currentMarket].digitPercentages = calculateDigitPercentages(); 
         }
         
-        // ============ OVER/UNDER ANALYSIS ============
+        // ============ OVER/UNDER ANALYSIS with specific thresholds ============
         function analyzeOverUnder(digit) {
-            if(digitsHistory.length < 20) return null;
+            if(digitsHistory.length < 30) return null;
             
-            let thresholds = [0, 1, 2, 3, 4, 5, 6];
-            let bestOver = null, bestOverPct = 0;
-            let bestUnder = null, bestUnderPct = 0;
+            // Check for OVER signals with specific thresholds (2, 3, 4, 5, 6)
+            const overThresholds = [2, 3, 4, 5, 6];
+            let bestOver = null;
+            let bestOverPct = 0;
             
-            for(let t of thresholds) {
+            for(let t of overThresholds) {
                 let overCount = digitsHistory.filter(d => d > t).length;
                 let overPct = (overCount / digitsHistory.length) * 100;
-                if(overPct > bestOverPct && overPct > 65) {
+                if(overPct > bestOverPct && overPct >= 65) {
                     bestOverPct = overPct;
                     bestOver = t;
                 }
             }
             
-            let underThresholds = [3, 4, 5, 6, 7, 8, 9];
+            // Check for UNDER signals with specific thresholds (8, 7, 6, 5, 4, 3)
+            const underThresholds = [8, 7, 6, 5, 4, 3];
+            let bestUnder = null;
+            let bestUnderPct = 0;
+            
             for(let t of underThresholds) {
                 let underCount = digitsHistory.filter(d => d < t).length;
                 let underPct = (underCount / digitsHistory.length) * 100;
-                if(underPct > bestUnderPct && underPct > 65) {
+                if(underPct > bestUnderPct && underPct >= 65) {
                     bestUnderPct = underPct;
                     bestUnder = t;
                 }
             }
             
-            if(bestOver !== null && bestOverPct > bestUnderPct) {
-                let nextDigit = digit;
-                let prediction = nextDigit > bestOver ? "OVER" : "UNDER";
-                return { signal: prediction, confidence: bestOverPct, threshold: bestOver, type: "over" };
-            } else if(bestUnder !== null) {
-                let nextDigit = digit;
-                let prediction = nextDigit < bestUnder ? "UNDER" : "OVER";
-                return { signal: prediction, confidence: bestUnderPct, threshold: bestUnder, type: "under" };
+            // Determine next prediction based on current digit
+            if(bestOver !== null && bestOverPct >= 68) {
+                let prediction = digit > bestOver ? "OVER" : "UNDER";
+                let signalText = prediction === "OVER" ? `OVER ${bestOver}` : `UNDER ${bestOver}`;
+                return { signal: signalText, confidence: bestOverPct, threshold: bestOver, type: "over" };
+            } 
+            else if(bestUnder !== null && bestUnderPct >= 68) {
+                let prediction = digit < bestUnder ? "UNDER" : "OVER";
+                let signalText = prediction === "UNDER" ? `UNDER ${bestUnder}` : `OVER ${bestUnder}`;
+                return { signal: signalText, confidence: bestUnderPct, threshold: bestUnder, type: "under" };
             }
+            
             return null;
         }
         
         // ============ EVEN/ODD ANALYSIS ============
         function analyzeEvenOdd(digit) {
-            if(digitsHistory.length < 20) return null;
+            if(digitsHistory.length < 30) return null;
             
             let evenCount = digitsHistory.filter(d => d % 2 === 0).length;
             let oddCount = digitsHistory.filter(d => d % 2 === 1).length;
             let evenPct = (evenCount / digitsHistory.length) * 100;
             let oddPct = (oddCount / digitsHistory.length) * 100;
             
-            if(evenPct > 65) {
+            console.log(`Even: ${evenPct.toFixed(1)}%, Odd: ${oddPct.toFixed(1)}%`);
+            
+            if(evenPct >= 68) {
                 let prediction = digit % 2 === 0 ? "EVEN" : "ODD";
                 return { signal: prediction, confidence: evenPct, type: "even" };
-            } else if(oddPct > 65) {
+            } 
+            else if(oddPct >= 68) {
                 let prediction = digit % 2 === 1 ? "ODD" : "EVEN";
                 return { signal: prediction, confidence: oddPct, type: "odd" };
             }
+            
             return null;
         }
         
         // ============ MATCHES/DIFFERS ANALYSIS ============
         function analyzeMatchesDiffers(digit) {
-            if(digitsHistory.length < 10) return null;
+            if(digitsHistory.length < 30) return null;
             
             let lastDigit = digitsHistory[digitsHistory.length - 1];
             let matches = 0, differs = 0;
@@ -707,13 +713,17 @@
             let matchesPct = (matches / (digitsHistory.length - 1)) * 100;
             let differsPct = (differs / (digitsHistory.length - 1)) * 100;
             
-            if(matchesPct > 65) {
+            console.log(`Matches: ${matchesPct.toFixed(1)}%, Differs: ${differsPct.toFixed(1)}%`);
+            
+            if(matchesPct >= 68) {
                 let prediction = digit === lastDigit ? "MATCHES" : "DIFFERS";
                 return { signal: prediction, confidence: matchesPct, type: "matches" };
-            } else if(differsPct > 65) {
+            } 
+            else if(differsPct >= 68) {
                 let prediction = digit !== lastDigit ? "DIFFERS" : "MATCHES";
                 return { signal: prediction, confidence: differsPct, type: "differs" };
             }
+            
             return null;
         }
         
@@ -761,7 +771,7 @@
             
             confidence = Math.min(95, Math.max(50, confidence));
             
-            if(signal && confidence > 65) {
+            if(signal && confidence > 68) {
                 return { signal: signal, confidence: Math.round(confidence), reasons: reasons };
             }
             return null;
@@ -800,30 +810,32 @@
             
             updateIndicators();
             
-            if(result && result.signal && result.confidence > 65) {
+            if(result && result.confidence >= 68) {
                 generateSignal(result.signal, result.confidence, result.reasons || []);
                 canAnalyze = false; // Stop analyzing until button is pressed
-                document.getElementById('floatingAnalyseBtn').disabled = false;
-                document.getElementById('floatingAnalyseBtn').style.opacity = '1';
                 return true;
             }
             return false;
         }
         
         function updateIndicators() {
-            if(priceData.length < 30) return;
-            let prices = priceData.slice(-30);
-            let rsi = calculateRSI(prices);
-            let ema12 = calculateEMA(prices, 12);
-            let ema26 = calculateEMA(prices, 26);
-            
             let indicatorsDiv = document.getElementById('indicators');
-            if(indicatorsDiv) {
+            if(!indicatorsDiv) return;
+            
+            if(priceData.length >= 30) {
+                let prices = priceData.slice(-30);
+                let rsi = calculateRSI(prices);
                 indicatorsDiv.innerHTML = `
                     <div class="flex justify-between"><span>RSI (14):</span><span class="${rsi < 30 ? 'text-green-400' : (rsi > 70 ? 'text-red-400' : 'text-yellow-400')}">${rsi.toFixed(1)}</span></div>
-                    <div class="flex justify-between"><span>MACD:</span><span class="${ema12 > ema26 ? 'text-green-400' : 'text-red-400'}">${(ema12 - ema26).toFixed(4)}</span></div>
                     <div class="flex justify-between"><span>Strategy:</span><span class="text-purple-400">${currentTradeType.replace('_', ' ').toUpperCase()}</span></div>
                     <div class="flex justify-between"><span>Status:</span><span class="${canAnalyze ? 'text-green-400' : 'text-yellow-400'}">${canAnalyze ? 'Monitoring' : 'Waiting for analyse'}</span></div>
+                    <div class="flex justify-between"><span>Data Points:</span><span>${digitsHistory.length} ticks</span></div>
+                `;
+            } else {
+                indicatorsDiv.innerHTML = `
+                    <div class="flex justify-between"><span>Strategy:</span><span class="text-purple-400">${currentTradeType.replace('_', ' ').toUpperCase()}</span></div>
+                    <div class="flex justify-between"><span>Status:</span><span class="text-yellow-400">Collecting data...</span></div>
+                    <div class="flex justify-between"><span>Data Points:</span><span>${digitsHistory.length}/30 needed</span></div>
                 `;
             }
         }
@@ -848,7 +860,7 @@
                 div.classList.add('signal-alert');
                 setTimeout(() => div.classList.remove('signal-alert'), 1500);
                 
-                let isBullish = (signal === 'RISE' || signal === 'OVER' || signal === 'EVEN' || signal === 'MATCHES');
+                let isBullish = (signal === 'RISE' || signal.includes('OVER') || signal === 'EVEN' || signal === 'MATCHES');
                 let colorClass = isBullish ? 'text-green-400' : 'text-red-400';
                 let icon = isBullish ? 'fa-arrow-up' : 'fa-arrow-down';
                 
@@ -856,7 +868,7 @@
                     <i class="fas ${icon} text-3xl ${colorClass} mb-2 animate-pulse"></i>
                     <p class="text-2xl font-bold ${colorClass}">${signal} SIGNAL!</p>
                     <p class="text-sm text-gray-300 mt-1">Confidence: ${Math.round(confidence)}%</p>
-                    <div class="text-xs text-gray-400 mt-2">${reasons.length ? reasons.slice(0, 2).map(r => `<span class="inline-block px-2 py-1 bg-gray-800 rounded mr-1 mt-1">${r}</span>`).join('') : '<span class="inline-block px-2 py-1 bg-gray-800 rounded">Pattern detected</span>'}</div>
+                    <div class="text-xs text-gray-400 mt-2">${reasons.length ? reasons.slice(0, 2).map(r => `<span class="inline-block px-2 py-1 bg-gray-800 rounded mr-1 mt-1">${r}</span>`).join('') : '<span class="inline-block px-2 py-1 bg-gray-800 rounded">Pattern detected with high probability</span>'}</div>
                     <p class="text-xs text-gray-500 mt-2">${MARKET_NAMES[currentMarket]} | ${new Date().toLocaleTimeString()}</p>
                 `;
             }
@@ -881,10 +893,10 @@
                 histDiv.innerHTML = signalHistory.map(s => `
                     <div class="flex justify-between items-center p-2 bg-gray-800/30 rounded text-xs">
                         <div class="flex items-center gap-2">
-                            <i class="fas ${(s.signal === 'RISE' || s.signal === 'OVER' || s.signal === 'EVEN' || s.signal === 'MATCHES') ? 'fa-arrow-up text-green-400' : 'fa-arrow-down text-red-400'}"></i>
-                            <span class="font-semibold">${s.signal}</span>
+                            <i class="fas ${(s.signal === 'RISE' || s.signal.includes('OVER') || s.signal === 'EVEN' || s.signal === 'MATCHES') ? 'fa-arrow-up text-green-400' : 'fa-arrow-down text-red-400'}"></i>
+                            <span class="font-semibold text-xs">${s.signal.substring(0, 15)}</span>
                         </div>
-                        <span class="text-gray-400 text-xs truncate max-w-[100px]">${s.market.substring(0, 12)}</span>
+                        <span class="text-gray-400 text-xs truncate max-w-[80px]">${s.market.substring(0, 10)}</span>
                         <span class="text-gray-500 text-xs">${s.time}</span>
                         <span class="${s.confidence > 70 ? 'text-green-400' : 'text-yellow-400'} font-bold">${Math.round(s.confidence)}%</span>
                     </div>
@@ -1045,7 +1057,7 @@
             }
             
             // Auto-analyze only if canAnalyze is true
-            if(canAnalyze) {
+            if(canAnalyze && digitsHistory.length >= 30) {
                 analyzeSignals(price, digitsHistory[digitsHistory.length - 1]);
             }
         }
@@ -1192,7 +1204,7 @@
             
             // Update signal display
             const signalDiv = document.getElementById('currentSignal');
-            if(signalDiv) {
+            if(signalDiv && digitsHistory.length >= 30) {
                 signalDiv.innerHTML = `
                     <i class="fas fa-chart-line text-3xl text-purple-400 mb-2 animate-pulse"></i>
                     <p class="text-sm font-bold">Scanning Market...</p>
@@ -1200,8 +1212,8 @@
                 `;
             }
             
-            // Force an immediate analysis
-            if(priceData.length > 0) {
+            // Force an immediate analysis if we have enough data
+            if(priceData.length > 0 && digitsHistory.length >= 30) {
                 setTimeout(() => {
                     analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]);
                 }, 1000);
@@ -1218,7 +1230,7 @@
                     currentTradeType = b.dataset.type;
                     currentSignal = null;
                     canAnalyze = true;
-                    document.getElementById('currentSignal').innerHTML = '<div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Switched strategy, awaiting analyse...</p>';
+                    document.getElementById('currentSignal').innerHTML = '<div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Switched strategy. Press analyse market to start scanning...</p>';
                     speak(`Switched to ${currentTradeType.replace('_', ' ')} analysis. Press analyse market to start scanning.`);
                 });
             });
@@ -1227,9 +1239,11 @@
             document.getElementById('floatingAnalyseBtn')?.addEventListener('click', resetAnalysis);
             
             document.getElementById('manualAnalysisBtn')?.addEventListener('click', () => {
-                if(priceData.length) {
+                if(priceData.length && digitsHistory.length >= 30) {
                     canAnalyze = true;
                     analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]);
+                } else {
+                    speak("Not enough data yet. Please wait for more ticks.");
                 }
             });
             
@@ -1244,7 +1258,6 @@
             });
             
             // Voice toggle button - only on/off
-            let voiceOn = true;
             document.getElementById('voiceToggleBtn')?.addEventListener('click', () => {
                 voiceEnabled = !voiceEnabled;
                 document.getElementById('voiceToggleBtn').innerHTML = voiceEnabled ? '<i class="fas fa-volume-up text-sm"></i>' : '<i class="fas fa-volume-mute text-sm"></i>';
