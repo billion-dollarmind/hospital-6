@@ -347,6 +347,16 @@
         .voice-btn:hover {
             transform: scale(1.05);
         }
+
+        /* Large digit animation for matches/differs */
+        @keyframes digitPop {
+            0% { transform: scale(0.8); opacity: 0; }
+            80% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .large-digit-box {
+            animation: digitPop 0.4s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+        }
     </style>
 </head>
 <body>
@@ -450,7 +460,7 @@
     <audio id="alertSound" preload="auto"><source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" type="audio/mpeg"></audio>
 
     <script>
-        // ============ SECURE LOGIN SYSTEM ============
+        // ============ SECURE LOGIN SYSTEM (unchanged) ============
         (function() {
             const SECRET_UNLOCK_CODE = "42055578";
             const VALID_EMAIL = "caleborenge08@gmail.com";
@@ -590,26 +600,17 @@
         function speak(msg) { 
             if(!voiceEnabled) return; 
             if(!window.speechSynthesis) return;
-            
             window.speechSynthesis.cancel();
-            
             let u = new SpeechSynthesisUtterance(msg); 
             u.rate = 0.9; 
-            u.pitch = 1; // Male voice
+            u.pitch = 1;
             u.volume = 1;
-            
-            setTimeout(() => {
-                window.speechSynthesis.speak(u);
-            }, 100);
-            
-            console.log("Speaking:", msg);
+            setTimeout(() => { window.speechSynthesis.speak(u); }, 100);
         }
         
         function playAlertSound() { 
             const sound = document.getElementById('alertSound');
-            if(sound) {
-                sound.play().catch(e => console.log("Audio play failed:", e));
-            }
+            if(sound) { sound.play().catch(e => console.log("Audio play failed:", e)); }
         }
         
         function getDigitColor(d) { 
@@ -628,190 +629,30 @@
             MARKET_DATA[currentMarket].digitPercentages = calculateDigitPercentages(); 
         }
         
-        // ============ OVER/UNDER ANALYSIS - MEANINGFUL THRESHOLDS ONLY ============
-        function analyzeOverUnder(digit) {
-            if(digitsHistory.length < 30) return null;
-            
-            // ONLY Over thresholds 2-9 (Over 0 and Over 1 are too common/meaningless)
-            const overThresholds = [2, 3, 4, 5, 6, 7, 8, 9];
-            let bestOver = null;
-            let bestOverPct = 0;
-            
-            for(let t of overThresholds) {
-                let overCount = digitsHistory.filter(d => d > t).length;
-                let overPct = (overCount / digitsHistory.length) * 100;
-                if(overPct > bestOverPct && overPct >= 65) {
-                    bestOverPct = overPct;
-                    bestOver = t;
-                }
-            }
-            
-            // ONLY Under thresholds 1-8 (Under 9 is too common/meaningless)
-            const underThresholds = [1, 2, 3, 4, 5, 6, 7, 8];
-            let bestUnder = null;
-            let bestUnderPct = 0;
-            
-            for(let t of underThresholds) {
-                let underCount = digitsHistory.filter(d => d < t).length;
-                let underPct = (underCount / digitsHistory.length) * 100;
-                if(underPct > bestUnderPct && underPct >= 65) {
-                    bestUnderPct = underPct;
-                    bestUnder = t;
-                }
-            }
-            
-            // Determine next prediction based on current digit and best threshold
-            if(bestOver !== null && bestOverPct >= 68) {
-                let prediction = digit > bestOver ? "OVER" : "UNDER";
-                let signalText = prediction === "OVER" ? `OVER ${bestOver}` : `UNDER ${bestOver}`;
-                return { signal: signalText, confidence: bestOverPct, threshold: bestOver, type: "over" };
-            } 
-            else if(bestUnder !== null && bestUnderPct >= 68) {
-                let prediction = digit < bestUnder ? "UNDER" : "OVER";
-                let signalText = prediction === "UNDER" ? `UNDER ${bestUnder}` : `OVER ${bestUnder}`;
-                return { signal: signalText, confidence: bestUnderPct, threshold: bestUnder, type: "under" };
-            }
-            
-            return null;
-        }
-        
-        // ============ EVEN/ODD ANALYSIS - PROPER EVEN OR ODD SIGNALS ============
-        function analyzeEvenOdd(digit) {
-            if(digitsHistory.length < 30) return null;
-            
-            let evenCount = digitsHistory.filter(d => d % 2 === 0).length;
-            let oddCount = digitsHistory.filter(d => d % 2 === 1).length;
-            let evenPct = (evenCount / digitsHistory.length) * 100;
-            let oddPct = (oddCount / digitsHistory.length) * 100;
-            
-            console.log(`Even: ${evenPct.toFixed(1)}%, Odd: ${oddPct.toFixed(1)}%`);
-            
-            if(evenPct >= 70) {
-                // Market shows strong EVEN pattern
-                let prediction = digit % 2 === 0 ? "EVEN" : "ODD";
-                return { signal: prediction, confidence: evenPct, type: "even", marketBias: "EVEN" };
-            } 
-            else if(oddPct >= 70) {
-                // Market shows strong ODD pattern
-                let prediction = digit % 2 === 1 ? "ODD" : "EVEN";
-                return { signal: prediction, confidence: oddPct, type: "odd", marketBias: "ODD" };
-            }
-            
-            return null;
-        }
-        
-        // ============ MATCHES/DIFFERS ANALYSIS ============
-        function analyzeMatchesDiffers(digit) {
-            if(digitsHistory.length < 30) return null;
-            
-            let lastDigit = digitsHistory[digitsHistory.length - 1];
-            let matches = 0, differs = 0;
-            
-            for(let i = 1; i < digitsHistory.length; i++) {
-                if(digitsHistory[i] === digitsHistory[i-1]) matches++;
-                else differs++;
-            }
-            
-            let matchesPct = (matches / (digitsHistory.length - 1)) * 100;
-            let differsPct = (differs / (digitsHistory.length - 1)) * 100;
-            
-            if(matchesPct >= 70) {
-                let prediction = digit === lastDigit ? "MATCHES" : "DIFFERS";
-                return { signal: prediction, confidence: matchesPct, type: "matches", lastDigit: lastDigit };
-            } 
-            else if(differsPct >= 70) {
-                let prediction = digit !== lastDigit ? "DIFFERS" : "MATCHES";
-                return { signal: prediction, confidence: differsPct, type: "differs", lastDigit: lastDigit };
-            }
-            
-            return null;
-        }
-        
-        // ============ RISE/FALL ANALYSIS ============
-        function analyzeRiseFall(price) {
-            if(priceData.length < 30) return null;
-            
-            let prices = priceData.slice(-20);
-            let gains = 0, losses = 0;
-            for(let i = 1; i < prices.length; i++) { 
-                let change = prices[i] - prices[i-1]; 
-                if(change >= 0) gains += change; 
-                else losses -= change; 
-            }
-            let avgGain = gains / 14;
-            let avgLoss = losses / 14;
-            let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-            let rsi = 100 - (100 / (1 + rs));
-            rsi = Math.min(100, Math.max(0, rsi));
-            
-            let ema12 = calculateEMA(prices, 12);
-            let ema26 = calculateEMA(prices, 26);
-            let macd = ema12 - ema26;
-            
-            let confidence = 50;
-            let signal = null;
-            let reasons = [];
-            
-            if(rsi < 30) { 
-                signal = "RISE"; 
-                confidence = 75 + (30 - rsi); 
-                reasons.push(`RSI oversold: ${rsi.toFixed(1)}`);
-                if(macd < 0) {
-                    confidence += 10;
-                }
-            } 
-            else if(rsi > 70) { 
-                signal = "FALL"; 
-                confidence = 75 + (rsi - 70); 
-                reasons.push(`RSI overbought: ${rsi.toFixed(1)}`);
-                if(macd > 0) {
-                    confidence += 10;
-                }
-            }
-            
-            confidence = Math.min(95, Math.max(50, confidence));
-            
-            if(signal && confidence > 68) {
-                return { signal: signal, confidence: Math.round(confidence), reasons: reasons };
-            }
-            return null;
-        }
-        
-        function calculateEMA(prices, period) {
-            if(prices.length < period) return prices[prices.length - 1];
-            let multiplier = 2 / (period + 1);
-            let ema = prices[0];
-            for(let i = 1; i < prices.length; i++) {
-                ema = (prices[i] - ema) * multiplier + ema;
-            }
-            return ema;
-        }
+        function analyzeOverUnder(digit) { if(digitsHistory.length < 30) return null; const overThresholds = [2,3,4,5,6,7,8,9]; let bestOver = null, bestOverPct = 0; for(let t of overThresholds) { let overCount = digitsHistory.filter(d => d > t).length; let overPct = (overCount / digitsHistory.length) * 100; if(overPct > bestOverPct && overPct >= 65) { bestOverPct = overPct; bestOver = t; } } const underThresholds = [1,2,3,4,5,6,7,8]; let bestUnder = null, bestUnderPct = 0; for(let t of underThresholds) { let underCount = digitsHistory.filter(d => d < t).length; let underPct = (underCount / digitsHistory.length) * 100; if(underPct > bestUnderPct && underPct >= 65) { bestUnderPct = underPct; bestUnder = t; } } if(bestOver !== null && bestOverPct >= 68) { let prediction = digit > bestOver ? "OVER" : "UNDER"; let signalText = prediction === "OVER" ? `OVER ${bestOver}` : `UNDER ${bestOver}`; return { signal: signalText, confidence: bestOverPct, threshold: bestOver, type: "over" }; } else if(bestUnder !== null && bestUnderPct >= 68) { let prediction = digit < bestUnder ? "UNDER" : "OVER"; let signalText = prediction === "UNDER" ? `UNDER ${bestUnder}` : `OVER ${bestUnder}`; return { signal: signalText, confidence: bestUnderPct, threshold: bestUnder, type: "under" }; } return null; }
+        function analyzeEvenOdd(digit) { if(digitsHistory.length < 30) return null; let evenCount = digitsHistory.filter(d => d % 2 === 0).length; let oddCount = digitsHistory.filter(d => d % 2 === 1).length; let evenPct = (evenCount / digitsHistory.length) * 100; let oddPct = (oddCount / digitsHistory.length) * 100; if(evenPct >= 70) { let prediction = digit % 2 === 0 ? "EVEN" : "ODD"; return { signal: prediction, confidence: evenPct, type: "even", marketBias: "EVEN" }; } else if(oddPct >= 70) { let prediction = digit % 2 === 1 ? "ODD" : "EVEN"; return { signal: prediction, confidence: oddPct, type: "odd", marketBias: "ODD" }; } return null; }
+        function analyzeMatchesDiffers(digit) { if(digitsHistory.length < 30) return null; let lastDigit = digitsHistory[digitsHistory.length - 1]; let matches = 0, differs = 0; for(let i = 1; i < digitsHistory.length; i++) { if(digitsHistory[i] === digitsHistory[i-1]) matches++; else differs++; } let matchesPct = (matches / (digitsHistory.length - 1)) * 100; let differsPct = (differs / (digitsHistory.length - 1)) * 100; if(matchesPct >= 70) { let prediction = digit === lastDigit ? "MATCHES" : "DIFFERS"; return { signal: prediction, confidence: matchesPct, type: "matches", lastDigit: lastDigit }; } else if(differsPct >= 70) { let prediction = digit !== lastDigit ? "DIFFERS" : "MATCHES"; return { signal: prediction, confidence: differsPct, type: "differs", lastDigit: lastDigit }; } return null; }
+        function analyzeRiseFall(price) { if(priceData.length < 30) return null; let prices = priceData.slice(-20); let gains = 0, losses = 0; for(let i = 1; i < prices.length; i++) { let change = prices[i] - prices[i-1]; if(change >= 0) gains += change; else losses -= change; } let avgGain = gains / 14; let avgLoss = losses / 14; let rs = avgLoss === 0 ? 100 : avgGain / avgLoss; let rsi = 100 - (100 / (1 + rs)); rsi = Math.min(100, Math.max(0, rsi)); let ema12 = calculateEMA(prices, 12); let ema26 = calculateEMA(prices, 26); let macd = ema12 - ema26; let confidence = 50; let signal = null; let reasons = []; if(rsi < 30) { signal = "RISE"; confidence = 75 + (30 - rsi); reasons.push(`RSI oversold: ${rsi.toFixed(1)}`); if(macd < 0) confidence += 10; } else if(rsi > 70) { signal = "FALL"; confidence = 75 + (rsi - 70); reasons.push(`RSI overbought: ${rsi.toFixed(1)}`); if(macd > 0) confidence += 10; } confidence = Math.min(95, Math.max(50, confidence)); if(signal && confidence > 68) return { signal: signal, confidence: Math.round(confidence), reasons: reasons }; return null; }
+        function calculateEMA(prices, period) { if(prices.length < period) return prices[prices.length - 1]; let multiplier = 2 / (period + 1); let ema = prices[0]; for(let i = 1; i < prices.length; i++) ema = (prices[i] - ema) * multiplier + ema; return ema; }
         
         function analyzeSignals(price, digit) {
             if(!canAnalyze) return false;
-            
             updateMarketData();
             let result = null;
-            
             switch(currentTradeType) {
-                case 'over_under':
-                    result = analyzeOverUnder(digit);
-                    break;
-                case 'even_odd':
-                    result = analyzeEvenOdd(digit);
-                    break;
-                case 'matches_differs':
-                    result = analyzeMatchesDiffers(digit);
-                    break;
-                case 'rise_fall':
-                    result = analyzeRiseFall(price);
-                    break;
+                case 'over_under': result = analyzeOverUnder(digit); break;
+                case 'even_odd': result = analyzeEvenOdd(digit); break;
+                case 'matches_differs': result = analyzeMatchesDiffers(digit); break;
+                case 'rise_fall': result = analyzeRiseFall(price); break;
             }
-            
             updateIndicators();
-            
             if(result && result.confidence >= 68) {
-                generateSignal(result.signal, result.confidence, result.reasons || []);
+                let extraData = null;
+                // For matches/differs we pass the last digit to display it largely
+                if(currentTradeType === 'matches_differs' && result.lastDigit !== undefined) {
+                    extraData = { digit: result.lastDigit, type: result.type };
+                }
+                generateSignal(result.signal, result.confidence, result.reasons || [], extraData);
                 canAnalyze = false;
                 return true;
             }
@@ -821,7 +662,6 @@
         function updateIndicators() {
             let indicatorsDiv = document.getElementById('indicators');
             if(!indicatorsDiv) return;
-            
             if(priceData.length >= 30) {
                 let prices = priceData.slice(-30);
                 let rsi = calculateRSI(prices);
@@ -830,49 +670,41 @@
                 let oddCount = digitsHistory.filter(d => d % 2 === 1).length;
                 let evenPct = digitsHistory.length > 0 ? (evenCount / digitsHistory.length * 100).toFixed(1) : 0;
                 let oddPct = digitsHistory.length > 0 ? (oddCount / digitsHistory.length * 100).toFixed(1) : 0;
-                
-                indicatorsDiv.innerHTML = `
-                    <div class="flex justify-between"><span>RSI (14):</span><span class="${rsi < 30 ? 'text-green-400' : (rsi > 70 ? 'text-red-400' : 'text-yellow-400')}">${rsi.toFixed(1)}</span></div>
-                    <div class="flex justify-between"><span>Strategy:</span><span class="text-purple-400">${currentTradeType.replace('_', ' ').toUpperCase()}</span></div>
-                    <div class="flex justify-between"><span>Status:</span><span class="${canAnalyze ? 'text-green-400' : 'text-yellow-400'}">${canAnalyze ? 'Monitoring' : 'Waiting for analyse'}</span></div>
-                    <div class="flex justify-between"><span>Last Digit:</span><span class="text-blue-400">${lastDigit}</span></div>
-                    <div class="flex justify-between"><span>Even/Odd:</span><span class="text-green-400">${evenPct}% / ${oddPct}%</span></div>
-                    <div class="flex justify-between"><span>Data Points:</span><span>${digitsHistory.length} ticks</span></div>
-                `;
+                indicatorsDiv.innerHTML = `<div class="flex justify-between"><span>RSI (14):</span><span class="${rsi < 30 ? 'text-green-400' : (rsi > 70 ? 'text-red-400' : 'text-yellow-400')}">${rsi.toFixed(1)}</span></div><div class="flex justify-between"><span>Strategy:</span><span class="text-purple-400">${currentTradeType.replace('_', ' ').toUpperCase()}</span></div><div class="flex justify-between"><span>Status:</span><span class="${canAnalyze ? 'text-green-400' : 'text-yellow-400'}">${canAnalyze ? 'Monitoring' : 'Waiting for analyse'}</span></div><div class="flex justify-between"><span>Last Digit:</span><span class="text-blue-400">${lastDigit}</span></div><div class="flex justify-between"><span>Even/Odd:</span><span class="text-green-400">${evenPct}% / ${oddPct}%</span></div><div class="flex justify-between"><span>Data Points:</span><span>${digitsHistory.length} ticks</span></div>`;
             } else {
-                indicatorsDiv.innerHTML = `
-                    <div class="flex justify-between"><span>Strategy:</span><span class="text-purple-400">${currentTradeType.replace('_', ' ').toUpperCase()}</span></div>
-                    <div class="flex justify-between"><span>Status:</span><span class="text-yellow-400">Collecting data...</span></div>
-                    <div class="flex justify-between"><span>Data Points:</span><span>${digitsHistory.length}/30 needed</span></div>
-                `;
+                indicatorsDiv.innerHTML = `<div class="flex justify-between"><span>Strategy:</span><span class="text-purple-400">${currentTradeType.replace('_', ' ').toUpperCase()}</span></div><div class="flex justify-between"><span>Status:</span><span class="text-yellow-400">Collecting data...</span></div><div class="flex justify-between"><span>Data Points:</span><span>${digitsHistory.length}/30 needed</span></div>`;
             }
         }
         
-        function calculateRSI(prices) {
-            let gains = 0, losses = 0;
-            for(let i = 1; i < Math.min(prices.length, 15); i++) { 
-                let change = prices[i] - prices[i-1]; 
-                if(change >= 0) gains += change; 
-                else losses -= change; 
-            }
-            let avgGain = gains / 14;
-            let avgLoss = losses / 14;
-            let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-            return 100 - (100 / (1 + rs));
-        }
+        function calculateRSI(prices) { let gains = 0, losses = 0; for(let i = 1; i < Math.min(prices.length, 15); i++) { let change = prices[i] - prices[i-1]; if(change >= 0) gains += change; else losses -= change; } let avgGain = gains / 14; let avgLoss = losses / 14; let rs = avgLoss === 0 ? 100 : avgGain / avgLoss; return 100 - (100 / (1 + rs)); }
         
-        function generateSignal(signal, confidence, reasons) {
+        // MODIFIED: generateSignal now accepts extra param to show large digit for matches/differs
+        function generateSignal(signal, confidence, reasons, extra = null) {
             let div = document.getElementById('currentSignal');
-            
             if(div) {
                 div.classList.add('signal-alert');
                 setTimeout(() => div.classList.remove('signal-alert'), 1500);
-                
                 let isBullish = (signal === 'RISE' || signal.includes('OVER') || signal === 'EVEN' || signal === 'MATCHES');
                 let colorClass = isBullish ? 'text-green-400' : 'text-red-400';
                 let icon = isBullish ? 'fa-arrow-up' : 'fa-arrow-down';
                 
+                let largeDigitHtml = '';
+                // Show large digit only when matches/differs strategy and extra contains digit
+                if(currentTradeType === 'matches_differs' && extra && extra.digit !== undefined) {
+                    const refDigit = extra.digit;
+                    largeDigitHtml = `
+                        <div class="large-digit-box mt-1 mb-2 inline-block w-full">
+                            <div class="text-center bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-2 border-2 border-purple-500 shadow-2xl">
+                                <p class="text-xs text-purple-300 font-semibold tracking-wider">REFERENCE DIGIT</p>
+                                <div class="text-7xl md:text-8xl font-black text-white" style="text-shadow: 0 0 20px rgba(102,126,234,0.8);">${refDigit}</div>
+                                <p class="text-[10px] text-gray-400 mt-1">${signal === 'MATCHES' ? 'NEXT TICK SHOULD MATCH' : 'NEXT TICK SHOULD DIFFER'}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+                
                 div.innerHTML = `
+                    ${largeDigitHtml}
                     <i class="fas ${icon} text-3xl ${colorClass} mb-2 animate-pulse"></i>
                     <p class="text-2xl font-bold ${colorClass}">${signal} SIGNAL!</p>
                     <p class="text-sm text-gray-300 mt-1">Confidence: ${Math.round(confidence)}%</p>
@@ -888,29 +720,12 @@
                 lastVoiceTime = Date.now();
             }
             
-            signalHistory.unshift({
-                signal: signal,
-                confidence: confidence,
-                time: new Date().toLocaleTimeString(),
-                market: MARKET_NAMES[currentMarket]
-            });
+            signalHistory.unshift({ signal: signal, confidence: confidence, time: new Date().toLocaleTimeString(), market: MARKET_NAMES[currentMarket] });
             if(signalHistory.length > 20) signalHistory.pop();
-            
             let histDiv = document.getElementById('signalHistory');
             if(histDiv) {
-                histDiv.innerHTML = signalHistory.map(s => `
-                    <div class="flex justify-between items-center p-2 bg-gray-800/30 rounded text-xs">
-                        <div class="flex items-center gap-2">
-                            <i class="fas ${(s.signal === 'RISE' || s.signal.includes('OVER') || s.signal === 'EVEN' || s.signal === 'MATCHES') ? 'fa-arrow-up text-green-400' : 'fa-arrow-down text-red-400'}"></i>
-                            <span class="font-semibold text-xs">${s.signal.substring(0, 15)}</span>
-                        </div>
-                        <span class="text-gray-400 text-xs truncate max-w-[80px]">${s.market.substring(0, 10)}</span>
-                        <span class="text-gray-500 text-xs">${s.time}</span>
-                        <span class="${s.confidence > 70 ? 'text-green-400' : 'text-yellow-400'} font-bold">${Math.round(s.confidence)}%</span>
-                    </div>
-                `).join('');
+                histDiv.innerHTML = signalHistory.map(s => `<div class="flex justify-between items-center p-2 bg-gray-800/30 rounded text-xs"><div class="flex items-center gap-2"><i class="fas ${(s.signal === 'RISE' || s.signal.includes('OVER') || s.signal === 'EVEN' || s.signal === 'MATCHES') ? 'fa-arrow-up text-green-400' : 'fa-arrow-down text-red-400'}"></i><span class="font-semibold text-xs">${s.signal.substring(0, 15)}</span></div><span class="text-gray-400 text-xs truncate max-w-[80px]">${s.market.substring(0, 10)}</span><span class="text-gray-500 text-xs">${s.time}</span><span class="${s.confidence > 70 ? 'text-green-400' : 'text-yellow-400'} font-bold">${Math.round(s.confidence)}%</span></div>`).join('');
             }
-            
             let bar = document.getElementById('confidenceBar');
             let pct = document.getElementById('confidencePercent');
             if(bar && pct) {
@@ -923,378 +738,24 @@
             }
         }
         
-        function initMarketDropdown() {
+        function initMarketDropdown() { /* unchanged, shortened for brevity */ 
             const content = document.getElementById('marketDropdownContent');
-            if(content) {
-                content.innerHTML = ALL_MARKETS.map(m => `
-                    <div class="market-dropdown-item ${currentMarket === m ? 'active' : ''}" data-market="${m}">
-                        <i class="fas fa-chart-line mr-2"></i>${MARKET_NAMES[m]}
-                    </div>
-                `).join('');
-                
-                document.querySelectorAll('.market-dropdown-item').forEach(item => {
-                    item.addEventListener('click', () => {
-                        const marketId = item.dataset.market;
-                        switchMarket(marketId);
-                        document.getElementById('marketDropdownContent').classList.remove('show');
-                    });
-                });
-            }
-            
-            const btn = document.getElementById('marketDropdownBtn');
-            const dropdown = document.getElementById('marketDropdownContent');
-            btn?.addEventListener('click', (e) => {
-                e.stopPropagation();
-                dropdown.classList.toggle('show');
-            });
-            
-            document.addEventListener('click', () => {
-                dropdown?.classList.remove('show');
-            });
+            if(content) { content.innerHTML = ALL_MARKETS.map(m => `<div class="market-dropdown-item ${currentMarket === m ? 'active' : ''}" data-market="${m}"><i class="fas fa-chart-line mr-2"></i>${MARKET_NAMES[m]}</div>`).join(''); document.querySelectorAll('.market-dropdown-item').forEach(item => { item.addEventListener('click', () => { const marketId = item.dataset.market; switchMarket(marketId); document.getElementById('marketDropdownContent').classList.remove('show'); }); }); }
+            const btn = document.getElementById('marketDropdownBtn'); const dropdown = document.getElementById('marketDropdownContent'); btn?.addEventListener('click', (e) => { e.stopPropagation(); dropdown.classList.toggle('show'); }); document.addEventListener('click', () => { dropdown?.classList.remove('show'); });
         }
-        
-        function switchMarket(market) { 
-            currentMarket = market; 
-            document.getElementById('currentMarketDisplay').innerText = MARKET_NAMES[market];
-            document.getElementById('selectedMarketText').innerText = MARKET_NAMES[market];
-            
-            if(MARKET_DATA[market]?.priceData && MARKET_DATA[market].priceData.length > 0) { 
-                priceData = [...MARKET_DATA[market].priceData]; 
-                digitsHistory = [...MARKET_DATA[market].digitsHistory]; 
-                updateUI(); 
-                if(priceChart) {
-                    priceChart.data.datasets[0].data = priceData.slice(-100);
-                    priceChart.update();
-                }
-            } else {
-                if(ws && ws.readyState === WebSocket.OPEN) {
-                    getTickHistory(market);
-                    subscribeToMarket(market);
-                }
-            }
-            initMarketDropdown();
-            
-            canAnalyze = true;
-            currentSignal = null;
-            speak(`Switched to ${MARKET_NAMES[market]}. Press analyse market to start scanning.`);
-        }
-        
-        function updateConnectionStatus(connected, message) {
-            const statusDiv = document.getElementById("connectionStatus");
-            if(statusDiv) {
-                statusDiv.innerHTML = connected ? 
-                    `<div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div><span class="text-xs">${message}</span>` :
-                    `<div class="w-2 h-2 rounded-full bg-red-500"></div><span class="text-xs">${message}</span>`;
-            }
-        }
-        
-        function subscribeToMarket(marketSymbol) {
-            if(!ws || ws.readyState !== WebSocket.OPEN) return;
-            if(currentSubscriptionId) {
-                ws.send(JSON.stringify({ forget: currentSubscriptionId, req_id: Date.now() }));
-            }
-            ws.send(JSON.stringify({ ticks: marketSymbol, subscribe: 1, req_id: Date.now() }));
-        }
-        
-        function getTickHistory(marketSymbol) {
-            const tickCount = parseInt(document.getElementById("tickSelector")?.value || "1000");
-            if(ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    ticks_history: marketSymbol,
-                    adjust_start_time: 1,
-                    count: tickCount,
-                    end: "latest",
-                    start: 1,
-                    style: "ticks",
-                    req_id: Date.now()
-                }));
-            }
-        }
-        
-        function processHistoricalData(prices) {
-            if(!prices || prices.length === 0) return;
-            
-            priceData = [];
-            digitsHistory = [];
-            
-            prices.forEach(price => {
-                if(!isNaN(price) && price > 0) {
-                    priceData.push(price);
-                    digitsHistory.push(getDigitFromPrice(price));
-                }
-            });
-            
-            if(priceData.length > 1000) {
-                priceData = priceData.slice(-1000);
-                digitsHistory = digitsHistory.slice(-1000);
-            }
-            
-            updateUI();
-            if(priceChart) {
-                priceChart.data.datasets[0].data = priceData.slice(-100);
-                priceChart.update();
-            }
-            
-            updateMarketData();
-        }
-        
-        function handleNewTick(tick) {
-            const price = parseFloat(tick.quote);
-            if(isNaN(price) || price <= 0) return;
-            
-            if(tick.subscription && !currentSubscriptionId) {
-                currentSubscriptionId = tick.subscription.id;
-            }
-            
-            priceData.push(price);
-            digitsHistory.push(getDigitFromPrice(price));
-            
-            if(priceData.length > 1000) {
-                priceData = priceData.slice(-1000);
-                digitsHistory = digitsHistory.slice(-1000);
-            }
-            
-            MARKET_DATA[currentMarket].priceData = [...priceData];
-            MARKET_DATA[currentMarket].digitsHistory = [...digitsHistory];
-            
-            updateUI();
-            
-            if(priceChart) {
-                priceChart.data.datasets[0].data = priceData.slice(-100);
-                priceChart.update();
-            }
-            
-            if(canAnalyze && digitsHistory.length >= 30) {
-                analyzeSignals(price, digitsHistory[digitsHistory.length - 1]);
-            }
-        }
-        
-        function refreshMarketData() {
-            if(ws && ws.readyState === WebSocket.OPEN) {
-                getTickHistory(currentMarket);
-                const btn = document.getElementById("refreshDataBtn");
-                if(btn) {
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading...';
-                    setTimeout(() => { btn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i>Refresh'; }, 2000);
-                }
-            }
-        }
-        
-        function connectDeriv() {
-            if(ws && ws.readyState === WebSocket.OPEN) ws.close();
-            
-            const derivWsUrl = "wss://ws.binaryws.com/websockets/v3?app_id=1089";
-            ws = new WebSocket(derivWsUrl);
-            
-            ws.onopen = () => {
-                console.log("WebSocket connected to Deriv");
-                updateConnectionStatus(true, "Live Data");
-                getTickHistory(currentMarket);
-                subscribeToMarket(currentMarket);
-                
-                setInterval(() => {
-                    if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ ping: 1 }));
-                }, 30000);
-            };
-            
-            ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    if(data.pong) return;
-                    if(data.tick && data.tick.quote) handleNewTick(data.tick);
-                    if(data.history && data.history.prices) processHistoricalData(data.history.prices.map(p => parseFloat(p)));
-                    if(data.error) console.error("Deriv API error:", data.error);
-                } catch(err) { console.error("Error parsing message:", err); }
-            };
-            
-            ws.onerror = (error) => { console.error("WebSocket error:", error); updateConnectionStatus(false, "Error"); };
-            
-            ws.onclose = () => {
-                console.log("WebSocket disconnected");
-                updateConnectionStatus(false, "Reconnecting...");
-                setTimeout(() => { if(document.body.contains(document.getElementById("mainContent"))) connectDeriv(); }, 5000);
-            };
-        }
-        
-        function updateUI() {
-            let total = digitsHistory.length || 1;
-            digitsData = Array(10).fill(0);
-            digitsHistory.forEach(d => { if(d >= 0 && d <= 9) digitsData[d]++; });
-            
-            document.getElementById('dominantDigit').innerText = digitsData.indexOf(Math.max(...digitsData));
-            
-            let statsDiv = document.getElementById('digitsStats');
-            if(statsDiv) {
-                statsDiv.innerHTML = digitsData.map((c, i) => `
-                    <div class="flex justify-between items-center text-xs">
-                        <span class="w-5 font-bold" style="color: ${getDigitColor(i)}">${i}</span>
-                        <div class="flex-1 mx-2 bg-gray-700 rounded-full h-2">
-                            <div class="h-2 rounded-full" style="width: ${(c/total)*100}%; background: ${getDigitColor(i)}"></div>
-                        </div>
-                        <span class="w-8 text-right">${c}</span>
-                        <span class="w-12 text-right text-gray-400">${((c/total)*100).toFixed(1)}%</span>
-                    </div>
-                `).join('');
-            }
-            
-            if(priceData.length) {
-                let lp = priceData[priceData.length - 1];
-                document.getElementById('lastPrice').innerText = lp.toFixed(4);
-                document.getElementById('highPrice').innerText = Math.max(...priceData).toFixed(4);
-                document.getElementById('lowPrice').innerText = Math.min(...priceData).toFixed(4);
-                if(priceData.length > 1) {
-                    let ch = ((lp - priceData[priceData.length - 2]) / priceData[priceData.length - 2] * 100);
-                    let el = document.getElementById('priceChange');
-                    el.innerText = `${ch >= 0 ? '+' : ''}${ch.toFixed(2)}%`;
-                    el.className = `font-bold ${ch >= 0 ? 'text-green-400' : 'text-red-400'}`;
-                }
-            }
-            
-            let ldp = document.getElementById('ldpGrid');
-            let last20 = [...digitsHistory].slice(-20).reverse();
-            if(ldp) {
-                ldp.innerHTML = last20.map(d => d !== undefined ? 
-                    `<div class="ldp-digit ldp-digit-${d} text-center text-white font-bold">${d}</div>` : 
-                    '<div class="ldp-digit bg-gray-700 text-center">-</div>'
-                ).join('');
-            }
-            
-            document.getElementById('currentLastDigit').innerHTML = last20.length > 0 ? last20[0] : '---';
-            
-            // Update OVER percentages for thresholds 2-9
-            for(let i = 2; i <= 9; i++) {
-                let cnt = digitsHistory.filter(d => d > i).length;
-                let pct = (cnt / total) * 100;
-                let el = document.getElementById(`over${i}Percent`);
-                if(el) el.innerText = `${pct.toFixed(1)}%`;
-            }
-            // Update UNDER percentages for thresholds 1-8
-            for(let i = 1; i <= 8; i++) {
-                let cnt = digitsHistory.filter(d => d < i).length;
-                let pct = (cnt / total) * 100;
-                let el = document.getElementById(`under${i}Percent`);
-                if(el) el.innerText = `${pct.toFixed(1)}%`;
-            }
-            
-            if(digitsChart) {
-                digitsChart.data.datasets[0].data = digitsData;
-                digitsChart.update();
-            }
-        }
-        
-        function initCharts() {
-            let ctx = document.getElementById('priceChart')?.getContext('2d');
-            if(ctx) {
-                priceChart = new Chart(ctx, {
-                    type: 'line',
-                    data: { labels: [], datasets: [{ label: 'Price', data: [], borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,0.1)', tension: 0.4, fill: true, pointRadius: 0 }] },
-                    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } }, x: { display: false } } }
-                });
-            }
-            let dctx = document.getElementById('digitsDonut')?.getContext('2d');
-            if(dctx) {
-                digitsChart = new Chart(dctx, {
-                    type: 'doughnut',
-                    data: { labels: ['0','1','2','3','4','5','6','7','8','9'], datasets: [{ data: digitsData, backgroundColor: ['#ef4444','#f59e0b','#eab308','#84cc16','#10b981','#06b6d4','#3b82f6','#8b5cf6','#d946ef','#ec4899'], borderWidth: 0 }] },
-                    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { color: '#9CA3AF', font: { size: 9 } } } } }
-                });
-            }
-        }
-        
-        function resetAnalysis() {
-            canAnalyze = true;
-            currentSignal = null;
-            speak("KAIRON Quantum Analysis has been activated. Signal will be given shortly. Get your KAIRON master bot ready.");
-            
-            const btn = document.getElementById('floatingAnalyseBtn');
-            btn.style.transform = 'scale(1.1)';
-            setTimeout(() => { btn.style.transform = ''; }, 300);
-            
-            const signalDiv = document.getElementById('currentSignal');
-            if(signalDiv && digitsHistory.length >= 30) {
-                signalDiv.innerHTML = `
-                    <i class="fas fa-chart-line text-3xl text-purple-400 mb-2 animate-pulse"></i>
-                    <p class="text-sm font-bold">Scanning Market...</p>
-                    <p class="text-xs text-gray-400 mt-1">Analyzing ${currentTradeType.replace('_', ' ').toUpperCase()} patterns for ${MARKET_NAMES[currentMarket]}</p>
-                `;
-            }
-            
-            if(priceData.length > 0 && digitsHistory.length >= 30) {
-                setTimeout(() => {
-                    analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]);
-                }, 1000);
-            }
-        }
-        
-        function initMarkets() {
-            initMarketDropdown();
-            
-            document.querySelectorAll('.trade-type-btn').forEach(b => {
-                b.addEventListener('click', () => {
-                    document.querySelectorAll('.trade-type-btn').forEach(btn => btn.classList.remove('active'));
-                    b.classList.add('active');
-                    currentTradeType = b.dataset.type;
-                    currentSignal = null;
-                    canAnalyze = true;
-                    document.getElementById('currentSignal').innerHTML = '<div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Switched strategy. Press analyse market to start scanning...</p>';
-                    speak(`Switched to ${currentTradeType.replace('_', ' ')} analysis. Press analyse market to start scanning.`);
-                });
-            });
-            
-            document.getElementById('floatingAnalyseBtn')?.addEventListener('click', resetAnalysis);
-            
-            document.getElementById('manualAnalysisBtn')?.addEventListener('click', () => {
-                if(priceData.length && digitsHistory.length >= 30) {
-                    canAnalyze = true;
-                    analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]);
-                } else {
-                    speak("Not enough data yet. Please wait for more ticks.");
-                }
-            });
-            
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    const tab = btn.dataset.tab;
-                    document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
-                    document.getElementById(`${tab}Tab`).classList.remove('hidden');
-                });
-            });
-            
-            document.getElementById('voiceToggleBtn')?.addEventListener('click', () => {
-                voiceEnabled = !voiceEnabled;
-                document.getElementById('voiceToggleBtn').innerHTML = voiceEnabled ? '<i class="fas fa-volume-up text-sm"></i>' : '<i class="fas fa-volume-mute text-sm"></i>';
-                if(voiceEnabled) speak("Voice alerts enabled. KAIRON system ready.");
-            });
-            
-            document.getElementById('refreshDataBtn')?.addEventListener('click', refreshMarketData);
-            document.getElementById('tickSelector')?.addEventListener('change', () => { if(ws && ws.readyState === WebSocket.OPEN) getTickHistory(currentMarket); });
-            
-            document.getElementById('mt5Form')?.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const login = document.getElementById('mt5Login').value;
-                const password = document.getElementById('mt5Password').value;
-                const server = document.getElementById('mt5Server').value;
-                if(login && password && server) {
-                    alert(`Credentials sent to admin! You will be contacted on WhatsApp shortly.`);
-                    document.getElementById('mt5Form').reset();
-                } else {
-                    alert('Please fill all fields');
-                }
-            });
-        }
-        
-        function startTradingApp() {
-            initMarkets();
-            initCharts();
-            connectDeriv();
-            
-            setTimeout(() => {
-                speak("System activated. Press analyse market to start scanning for signals.");
-            }, 3000);
-        }
-        
+        function switchMarket(market) { currentMarket = market; document.getElementById('currentMarketDisplay').innerText = MARKET_NAMES[market]; document.getElementById('selectedMarketText').innerText = MARKET_NAMES[market]; if(MARKET_DATA[market]?.priceData && MARKET_DATA[market].priceData.length > 0) { priceData = [...MARKET_DATA[market].priceData]; digitsHistory = [...MARKET_DATA[market].digitsHistory]; updateUI(); if(priceChart) { priceChart.data.datasets[0].data = priceData.slice(-100); priceChart.update(); } } else { if(ws && ws.readyState === WebSocket.OPEN) { getTickHistory(market); subscribeToMarket(market); } } initMarketDropdown(); canAnalyze = true; currentSignal = null; speak(`Switched to ${MARKET_NAMES[market]}. Press analyse market to start scanning.`); }
+        function updateConnectionStatus(connected, message) { const statusDiv = document.getElementById("connectionStatus"); if(statusDiv) statusDiv.innerHTML = connected ? `<div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div><span class="text-xs">${message}</span>` : `<div class="w-2 h-2 rounded-full bg-red-500"></div><span class="text-xs">${message}</span>`; }
+        function subscribeToMarket(marketSymbol) { if(!ws || ws.readyState !== WebSocket.OPEN) return; if(currentSubscriptionId) ws.send(JSON.stringify({ forget: currentSubscriptionId, req_id: Date.now() })); ws.send(JSON.stringify({ ticks: marketSymbol, subscribe: 1, req_id: Date.now() })); }
+        function getTickHistory(marketSymbol) { const tickCount = parseInt(document.getElementById("tickSelector")?.value || "1000"); if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ ticks_history: marketSymbol, adjust_start_time: 1, count: tickCount, end: "latest", start: 1, style: "ticks", req_id: Date.now() })); }
+        function processHistoricalData(prices) { if(!prices || prices.length === 0) return; priceData = []; digitsHistory = []; prices.forEach(price => { if(!isNaN(price) && price > 0) { priceData.push(price); digitsHistory.push(getDigitFromPrice(price)); } }); if(priceData.length > 1000) { priceData = priceData.slice(-1000); digitsHistory = digitsHistory.slice(-1000); } updateUI(); if(priceChart) { priceChart.data.datasets[0].data = priceData.slice(-100); priceChart.update(); } updateMarketData(); }
+        function handleNewTick(tick) { const price = parseFloat(tick.quote); if(isNaN(price) || price <= 0) return; if(tick.subscription && !currentSubscriptionId) currentSubscriptionId = tick.subscription.id; priceData.push(price); digitsHistory.push(getDigitFromPrice(price)); if(priceData.length > 1000) { priceData = priceData.slice(-1000); digitsHistory = digitsHistory.slice(-1000); } MARKET_DATA[currentMarket].priceData = [...priceData]; MARKET_DATA[currentMarket].digitsHistory = [...digitsHistory]; updateUI(); if(priceChart) { priceChart.data.datasets[0].data = priceData.slice(-100); priceChart.update(); } if(canAnalyze && digitsHistory.length >= 30) analyzeSignals(price, digitsHistory[digitsHistory.length - 1]); }
+        function refreshMarketData() { if(ws && ws.readyState === WebSocket.OPEN) { getTickHistory(currentMarket); const btn = document.getElementById("refreshDataBtn"); if(btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading...'; setTimeout(() => { btn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i>Refresh'; }, 2000); } } }
+        function connectDeriv() { if(ws && ws.readyState === WebSocket.OPEN) ws.close(); const derivWsUrl = "wss://ws.binaryws.com/websockets/v3?app_id=1089"; ws = new WebSocket(derivWsUrl); ws.onopen = () => { updateConnectionStatus(true, "Live Data"); getTickHistory(currentMarket); subscribeToMarket(currentMarket); setInterval(() => { if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ ping: 1 })); }, 30000); }; ws.onmessage = (event) => { try { const data = JSON.parse(event.data); if(data.pong) return; if(data.tick && data.tick.quote) handleNewTick(data.tick); if(data.history && data.history.prices) processHistoricalData(data.history.prices.map(p => parseFloat(p))); if(data.error) console.error("Deriv API error:", data.error); } catch(err) { console.error("Error parsing message:", err); } }; ws.onerror = (error) => { console.error("WebSocket error:", error); updateConnectionStatus(false, "Error"); }; ws.onclose = () => { updateConnectionStatus(false, "Reconnecting..."); setTimeout(() => { if(document.body.contains(document.getElementById("mainContent"))) connectDeriv(); }, 5000); }; }
+        function updateUI() { let total = digitsHistory.length || 1; digitsData = Array(10).fill(0); digitsHistory.forEach(d => { if(d >= 0 && d <= 9) digitsData[d]++; }); document.getElementById('dominantDigit').innerText = digitsData.indexOf(Math.max(...digitsData)); let statsDiv = document.getElementById('digitsStats'); if(statsDiv) { statsDiv.innerHTML = digitsData.map((c, i) => `<div class="flex justify-between items-center text-xs"><span class="w-5 font-bold" style="color: ${getDigitColor(i)}">${i}</span><div class="flex-1 mx-2 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full" style="width: ${(c/total)*100}%; background: ${getDigitColor(i)}"></div></div><span class="w-8 text-right">${c}</span><span class="w-12 text-right text-gray-400">${((c/total)*100).toFixed(1)}%</span></div>`).join(''); } if(priceData.length) { let lp = priceData[priceData.length - 1]; document.getElementById('lastPrice').innerText = lp.toFixed(4); document.getElementById('highPrice').innerText = Math.max(...priceData).toFixed(4); document.getElementById('lowPrice').innerText = Math.min(...priceData).toFixed(4); if(priceData.length > 1) { let ch = ((lp - priceData[priceData.length - 2]) / priceData[priceData.length - 2] * 100); let el = document.getElementById('priceChange'); el.innerText = `${ch >= 0 ? '+' : ''}${ch.toFixed(2)}%`; el.className = `font-bold ${ch >= 0 ? 'text-green-400' : 'text-red-400'}`; } } let ldp = document.getElementById('ldpGrid'); let last20 = [...digitsHistory].slice(-20).reverse(); if(ldp) ldp.innerHTML = last20.map(d => d !== undefined ? `<div class="ldp-digit ldp-digit-${d} text-center text-white font-bold">${d}</div>` : '<div class="ldp-digit bg-gray-700 text-center">-</div>').join(''); document.getElementById('currentLastDigit').innerHTML = last20.length > 0 ? last20[0] : '---'; for(let i = 2; i <= 9; i++) { let cnt = digitsHistory.filter(d => d > i).length; let pct = (cnt / total) * 100; let el = document.getElementById(`over${i}Percent`); if(el) el.innerText = `${pct.toFixed(1)}%`; } for(let i = 1; i <= 8; i++) { let cnt = digitsHistory.filter(d => d < i).length; let pct = (cnt / total) * 100; let el = document.getElementById(`under${i}Percent`); if(el) el.innerText = `${pct.toFixed(1)}%`; } if(digitsChart) { digitsChart.data.datasets[0].data = digitsData; digitsChart.update(); } }
+        function initCharts() { let ctx = document.getElementById('priceChart')?.getContext('2d'); if(ctx) { priceChart = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Price', data: [], borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,0.1)', tension: 0.4, fill: true, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } }, x: { display: false } } } }); } let dctx = document.getElementById('digitsDonut')?.getContext('2d'); if(dctx) { digitsChart = new Chart(dctx, { type: 'doughnut', data: { labels: ['0','1','2','3','4','5','6','7','8','9'], datasets: [{ data: digitsData, backgroundColor: ['#ef4444','#f59e0b','#eab308','#84cc16','#10b981','#06b6d4','#3b82f6','#8b5cf6','#d946ef','#ec4899'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { color: '#9CA3AF', font: { size: 9 } } } } } }); } }
+        function resetAnalysis() { canAnalyze = true; currentSignal = null; speak("KAIRON Quantum Analysis has been activated. Signal will be given shortly. Get your KAIRON master bot ready."); const btn = document.getElementById('floatingAnalyseBtn'); btn.style.transform = 'scale(1.1)'; setTimeout(() => { btn.style.transform = ''; }, 300); const signalDiv = document.getElementById('currentSignal'); if(signalDiv && digitsHistory.length >= 30) { signalDiv.innerHTML = `<i class="fas fa-chart-line text-3xl text-purple-400 mb-2 animate-pulse"></i><p class="text-sm font-bold">Scanning Market...</p><p class="text-xs text-gray-400 mt-1">Analyzing ${currentTradeType.replace('_', ' ').toUpperCase()} patterns for ${MARKET_NAMES[currentMarket]}</p>`; } if(priceData.length > 0 && digitsHistory.length >= 30) { setTimeout(() => { analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]); }, 1000); } }
+        function initMarkets() { initMarketDropdown(); document.querySelectorAll('.trade-type-btn').forEach(b => { b.addEventListener('click', () => { document.querySelectorAll('.trade-type-btn').forEach(btn => btn.classList.remove('active')); b.classList.add('active'); currentTradeType = b.dataset.type; currentSignal = null; canAnalyze = true; document.getElementById('currentSignal').innerHTML = '<div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Switched strategy. Press analyse market to start scanning...</p>'; speak(`Switched to ${currentTradeType.replace('_', ' ')} analysis. Press analyse market to start scanning.`); }); }); document.getElementById('floatingAnalyseBtn')?.addEventListener('click', resetAnalysis); document.getElementById('manualAnalysisBtn')?.addEventListener('click', () => { if(priceData.length && digitsHistory.length >= 30) { canAnalyze = true; analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]); } else { speak("Not enough data yet. Please wait for more ticks."); } }); document.querySelectorAll('.tab-btn').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); const tab = btn.dataset.tab; document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden')); document.getElementById(`${tab}Tab`).classList.remove('hidden'); }); }); document.getElementById('voiceToggleBtn')?.addEventListener('click', () => { voiceEnabled = !voiceEnabled; document.getElementById('voiceToggleBtn').innerHTML = voiceEnabled ? '<i class="fas fa-volume-up text-sm"></i>' : '<i class="fas fa-volume-mute text-sm"></i>'; if(voiceEnabled) speak("Voice alerts enabled. KAIRON system ready."); }); document.getElementById('refreshDataBtn')?.addEventListener('click', refreshMarketData); document.getElementById('tickSelector')?.addEventListener('change', () => { if(ws && ws.readyState === WebSocket.OPEN) getTickHistory(currentMarket); }); document.getElementById('mt5Form')?.addEventListener('submit', (e) => { e.preventDefault(); const login = document.getElementById('mt5Login').value; const password = document.getElementById('mt5Password').value; const server = document.getElementById('mt5Server').value; if(login && password && server) { alert(`Credentials sent to admin! You will be contacted on WhatsApp shortly.`); document.getElementById('mt5Form').reset(); } else { alert('Please fill all fields'); } }); }
+        function startTradingApp() { initMarkets(); initCharts(); connectDeriv(); setTimeout(() => { speak("System activated. Press analyse market to start scanning for signals."); }, 3000); }
         window.addEventListener("beforeunload", () => { if(ws && ws.readyState === WebSocket.OPEN) ws.close(); });
     </script>
 </body>
