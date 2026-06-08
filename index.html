@@ -258,7 +258,7 @@
                         <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-chart-line mr-2 text-blue-400"></i>Real-time Price Action - <span id="currentMarketDisplay">Volatility 100 Index</span></h3><canvas id="priceChart" height="200" class="w-full"></canvas><div class="grid grid-cols-4 gap-1 md:gap-2 mt-3 text-center text-[10px] md:text-xs"><div><span class="text-gray-400">Last</span><br><span id="lastPrice" class="font-bold text-sm md:text-base">0.00</span></div><div><span class="text-gray-400">High</span><br><span id="highPrice" class="font-bold text-green-400">0.00</span></div><div><span class="text-gray-400">Low</span><br><span id="lowPrice" class="font-bold text-red-400">0.00</span></div><div><span class="text-gray-400">Change</span><br><span id="priceChange" class="font-bold">0%</span></div></div></div>
                     </div>
                     <div class="space-y-3 md:space-y-4">
-                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-bullhorn mr-2 text-yellow-400"></i>Live Signals</h3><div id="currentSignal" class="mb-3 p-3 rounded-lg text-center bg-gray-800/50 min-h-[120px]"><div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Awaiting market data...</p></div><div class="mb-3"><div class="flex justify-between text-xs mb-1"><span>Signal Confidence</span><span id="confidencePercent">0%</span></div><div class="w-full bg-gray-700 rounded-full h-2"><div id="confidenceBar" class="confidence-bar h-2 rounded-full" style="width: 0%"></div></div></div><div class="space-y-1 md:space-y-2"><h4 class="text-[10px] md:text-xs font-semibold text-gray-400">Technical Indicators</h4><div id="indicators" class="space-y-1 text-[10px] md:text-xs"></div></div><button id="manualAnalysisBtn" class="mt-3 w-full py-1.5 md:py-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg text-xs md:text-sm font-semibold hover:shadow-lg transition"><i class="fas fa-chart-line mr-1"></i>Run Analysis</button></div>
+                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-bullhorn mr-2 text-yellow-400"></i>Live Signals</h3><div id="currentSignal" class="mb-3 p-3 rounded-lg text-center bg-gray-800/50 min-h-[120px]"><div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Connecting to Deriv live feed...</p></div><div class="mb-3"><div class="flex justify-between text-xs mb-1"><span>Signal Confidence</span><span id="confidencePercent">0%</span></div><div class="w-full bg-gray-700 rounded-full h-2"><div id="confidenceBar" class="confidence-bar h-2 rounded-full" style="width: 0%"></div></div></div><div class="space-y-1 md:space-y-2"><h4 class="text-[10px] md:text-xs font-semibold text-gray-400">Technical Indicators</h4><div id="indicators" class="space-y-1 text-[10px] md:text-xs"></div></div><button id="manualAnalysisBtn" class="mt-3 w-full py-1.5 md:py-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg text-xs md:text-sm font-semibold hover:shadow-lg transition"><i class="fas fa-chart-line mr-1"></i>Run Analysis</button></div>
                         <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-history mr-2 text-green-400"></i>Signal History</h3><div id="signalHistory" class="space-y-1 max-h-40 md:max-h-48 overflow-y-auto"><p class="text-center text-gray-500 text-xs py-4">No signals yet</p></div></div>
                     </div>
                 </div>
@@ -282,6 +282,7 @@
         const MATCHES_SESSION_CODE = "42055578";
         const RESTRICTED_DAILY_MS = 60 * 60 * 1000;   // 1 hour
         const RESTRICTED_COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 hours
+        const TESTING_MODE = true; // Set to false to re-enable password on deploy
 
         let currentUserRole = null;          // 'admin' or 'restricted'
         let matchesAccessGranted = false;     // session flag for restricted user to use matches/differs
@@ -411,6 +412,7 @@
         }
 
         function checkMatchesAccess() {
+            if (TESTING_MODE) return true;
             if (currentUserRole === 'admin') return true;
             if (currentUserRole === 'restricted') {
                 if (matchesAccessGranted) return true;
@@ -427,13 +429,36 @@
             return false;
         }
 
+        function launchApp() {
+            setTimeout(() => {
+                document.getElementById('loader').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('loader').style.display = 'none';
+                    document.getElementById('mainContent').style.display = 'block';
+                    startTradingApp();
+                }, 500);
+            }, 1500);
+        }
+        function enterAppAsAdmin() {
+            currentUserRole = 'admin';
+            matchesAccessGranted = true;
+            const newToken = generateSessionToken();
+            localStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, newToken);
+            localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION, newToken);
+            localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, "true");
+            localStorage.setItem(STORAGE_KEYS.IS_LOCKED, "false");
+            localStorage.setItem("kairon_current_role", "admin");
+            launchApp();
+        }
+
         // Initialize authentication
         (function initAuth() {
+            if (TESTING_MODE) { enterAppAsAdmin(); return; }
             const savedRole = localStorage.getItem("kairon_current_role");
             if (savedRole === 'admin') {
                 if (validateAdminSession()) {
                     currentUserRole = 'admin';
-                    setTimeout(() => { document.getElementById('loader').style.opacity='0'; setTimeout(()=>{document.getElementById('loader').style.display='none'; document.getElementById('mainContent').style.display='block'; startTradingApp();},500); }, 1500);
+                    launchApp();
                     return;
                 } else { localStorage.removeItem("kairon_current_role"); showLoginModal(); return; }
             } 
@@ -442,7 +467,7 @@
                     currentUserRole = 'restricted';
                     matchesAccessGranted = sessionStorage.getItem("matches_code_granted") === "true";
                     startRestrictedSession();
-                    setTimeout(() => { document.getElementById('loader').style.opacity='0'; setTimeout(()=>{document.getElementById('loader').style.display='none'; document.getElementById('mainContent').style.display='block'; startTradingApp();},500); }, 1500);
+                    launchApp();
                 } else {
                     const cooldownRemaining = getRestrictedCooldownRemaining();
                     if (cooldownRemaining) showCooldownModal();
@@ -467,59 +492,143 @@
             });
         }
 
-        // ======================= ORIGINAL APP CORE (with modifications) =======================
+        // ======================= DERIV LIVE DATA + SIGNAL ENGINE =======================
+        const DERIV_CONFIG = {
+            APP_ID: 67213,
+            WS_URL: 'wss://ws.binaryws.com/websockets/v3',
+            MIN_CONFIDENCE: 58,
+            MAX_HISTORY: 1500,
+            MIN_TICKS_FOR_ANALYSIS: 50,
+            ANALYSIS_WINDOW: 100,
+            PING_INTERVAL: 30000,
+            RECONNECT_DELAY: 5000
+        };
         const MARKET_NAMES = { 'R_10': 'Volatility 10 Index','R_25':'Volatility 25 Index','R_50':'Volatility 50 Index','R_75':'Volatility 75 Index','R_100':'Volatility 100 Index','1HZ10V':'Volatility 10 (1s)','1HZ25V':'Volatility 25 (1s)','1HZ50V':'Volatility 50 (1s)','1HZ75V':'Volatility 75 (1s)','1HZ100V':'Volatility 100 (1s)' };
+        const MARKET_PIP_SIZES = { 'R_10': 3, 'R_25': 3, 'R_50': 4, 'R_75': 4, 'R_100': 2, '1HZ10V': 2, '1HZ25V': 2, '1HZ50V': 2, '1HZ75V': 2, '1HZ100V': 2 };
         const ALL_MARKETS = Object.keys(MARKET_NAMES);
         let ws = null, currentMarket = 'R_100', currentTradeType = 'rise_fall', digitsHistory = [], priceData = [], signalHistory = [], voiceEnabled = true, lastVoiceTime = 0, canAnalyze = true, priceChart = null, digitsChart = null, currentSubscriptionId = null;
+        let tickCount = 0, historyLoaded = false, pingIntervalId = null;
         const MARKET_DATA = {};
-        ALL_MARKETS.forEach(m => { MARKET_DATA[m] = { digitsHistory: [], priceData: [] }; });
+        ALL_MARKETS.forEach(m => { MARKET_DATA[m] = { digitsHistory: [], priceData: [], lastEpoch: null }; });
 
-        function getDigitFromPrice(p) { let s = p.toString(); if(s.includes('.')){ let m = s.match(/\.(\d)/); if(m) return parseInt(m[1]); } return Math.floor(Math.abs(p)) % 10; }
+        function getDigitFromQuote(quote, pipSize, symbol) {
+            const sym = symbol || currentMarket;
+            const decimals = pipSize ?? MARKET_PIP_SIZES[sym] ?? 2;
+            const formatted = parseFloat(String(quote)).toFixed(decimals);
+            return parseInt(formatted.slice(-1), 10) || 0;
+        }
+        function updateConnectionStatus(status, message) {
+            const el = document.getElementById('connectionStatus');
+            if (!el) return;
+            const colors = { connecting: 'bg-yellow-500 animate-pulse', connected: 'bg-green-500', loading: 'bg-blue-500 animate-pulse', error: 'bg-red-500' };
+            el.innerHTML = `<div class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${colors[status] || 'bg-yellow-500'}"></div><span class="text-[10px] md:text-xs">${message}</span>`;
+        }
         function speak(msg) { if(!voiceEnabled || !window.speechSynthesis) return; window.speechSynthesis.cancel(); let u = new SpeechSynthesisUtterance(msg); u.rate=0.9; window.speechSynthesis.speak(u); }
         function playAlertSound() { document.getElementById('alertSound')?.play().catch(e=>{}); }
         function getDigitColor(d) { return ['#ef4444','#f59e0b','#eab308','#84cc16','#10b981','#06b6d4','#3b82f6','#8b5cf6','#d946ef','#ec4899'][d%10]; }
         
-        function calculateEMA(prices, period) { if(prices.length<period) return prices[prices.length-1]; let multiplier=2/(period+1), ema=prices[0]; for(let i=1;i<prices.length;i++) ema=(prices[i]-ema)*multiplier+ema; return ema; }
-        function calculateRSI(prices) { let gains=0,losses=0; for(let i=1;i<Math.min(prices.length,15);i++){ let ch=prices[i]-prices[i-1]; if(ch>=0) gains+=ch; else losses-=ch; } let avgGain=gains/14, avgLoss=losses/14, rs=avgLoss===0?100:avgGain/avgLoss; return 100-(100/(1+rs)); }
-        
-        function analyzeEvenOdd(digit) {
-            if(digitsHistory.length<30) return null;
-            let evenCount=digitsHistory.filter(d=>d%2===0).length, oddCount=digitsHistory.length-evenCount;
-            let evenPct=(evenCount/digitsHistory.length)*100, oddPct=(oddCount/digitsHistory.length)*100;
-            if(evenPct>=70) return { signal:"EVEN", confidence:evenPct, type:"even" };
-            if(oddPct>=70) return { signal:"ODD", confidence:oddPct, type:"odd" };
+        function calculateEMA(prices, period) {
+            if (prices.length < period) return prices[prices.length - 1];
+            const multiplier = 2 / (period + 1);
+            let ema = prices[0];
+            for (let i = 1; i < prices.length; i++) ema = (prices[i] - ema) * multiplier + ema;
+            return ema;
+        }
+        function calculateRSI(prices, period = 14) {
+            if (prices.length < period + 1) return 50;
+            let gains = 0, losses = 0;
+            for (let i = prices.length - period; i < prices.length; i++) {
+                const change = prices[i] - prices[i - 1];
+                if (change >= 0) gains += change;
+                else losses -= change;
+            }
+            const avgGain = gains / period, avgLoss = losses / period;
+            if (avgLoss === 0) return 100;
+            return 100 - (100 / (1 + avgGain / avgLoss));
+        }
+        function getAnalysisWindow() {
+            return digitsHistory.slice(-DERIV_CONFIG.ANALYSIS_WINDOW);
+        }
+        function updateIndicators() {
+            const el = document.getElementById('indicators');
+            if (!el || priceData.length < 10) return;
+            const prices = priceData.slice(-50);
+            const rsi = calculateRSI(prices, 14);
+            const ema9 = calculateEMA(prices, 9);
+            const ema21 = calculateEMA(prices, 21);
+            const lastDigit = digitsHistory[digitsHistory.length - 1];
+            const recent = digitsHistory.slice(-20);
+            const evenPct = recent.length ? (recent.filter(d => d % 2 === 0).length / recent.length * 100).toFixed(1) : '0';
+            el.innerHTML = `<div class="flex justify-between"><span class="text-gray-400">RSI (14)</span><span class="${rsi < 35 ? 'text-green-400' : rsi > 65 ? 'text-red-400' : 'text-white'}">${rsi.toFixed(1)}</span></div><div class="flex justify-between"><span class="text-gray-400">Trend</span><span class="${ema9 > ema21 ? 'text-green-400' : 'text-red-400'}">${ema9 > ema21 ? 'Bullish' : 'Bearish'}</span></div><div class="flex justify-between"><span class="text-gray-400">Last Digit</span><span class="font-bold" style="color:${getDigitColor(lastDigit)}">${lastDigit ?? '-'}</span></div><div class="flex justify-between"><span class="text-gray-400">Even % (20 ticks)</span><span>${evenPct}%</span></div><div class="flex justify-between"><span class="text-gray-400">Data source</span><span class="text-green-400">${tickCount} Deriv ticks</span></div>`;
+        }
+
+        function analyzeEvenOdd() {
+            const window = getAnalysisWindow();
+            if (window.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return null;
+            const evenCount = window.filter(d => d % 2 === 0).length;
+            const evenPct = (evenCount / window.length) * 100;
+            const oddPct = 100 - evenPct;
+            const reasons = [`Even: ${evenPct.toFixed(1)}%`, `Sample: ${window.length} ticks`];
+            if (evenPct >= 62) return { signal: "EVEN", confidence: evenPct, type: "even", reasons };
+            if (oddPct >= 62) return { signal: "ODD", confidence: oddPct, type: "odd", reasons };
             return null;
         }
-        function analyzeMatchesDiffers(digit) {
+        function analyzeMatchesDiffers() {
             if (!checkMatchesAccess()) return null;
-            if(digitsHistory.length<30) return null;
-            let lastDigit=digitsHistory[digitsHistory.length-1], matches=0,differs=0;
-            for(let i=1;i<digitsHistory.length;i++){ if(digitsHistory[i]===digitsHistory[i-1]) matches++; else differs++; }
-            let matchesPct=(matches/(digitsHistory.length-1))*100, differsPct=(differs/(digitsHistory.length-1))*100;
-            if(matchesPct>=70) return { signal:"MATCHES", confidence:matchesPct, type:"matches", lastDigit:lastDigit };
-            if(differsPct>=70) return { signal:"DIFFERS", confidence:differsPct, type:"differs", lastDigit:lastDigit };
+            const window = getAnalysisWindow();
+            if (window.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return null;
+            const lastDigit = window[window.length - 1];
+            let matches = 0, differs = 0;
+            for (let i = 1; i < window.length; i++) {
+                if (window[i] === window[i - 1]) matches++;
+                else differs++;
+            }
+            const matchesPct = (matches / (window.length - 1)) * 100;
+            const differsPct = (differs / (window.length - 1)) * 100;
+            const reasons = [`Matches: ${matchesPct.toFixed(1)}%`, `Last digit: ${lastDigit}`];
+            if (matchesPct >= 62) return { signal: "MATCHES", confidence: matchesPct, type: "matches", lastDigit, reasons };
+            if (differsPct >= 62) return { signal: "DIFFERS", confidence: differsPct, type: "differs", lastDigit, reasons };
             return null;
         }
-        function analyzeRiseFall(price) {
-            if(priceData.length<30) return null;
-            let prices=priceData.slice(-20), gains=0,losses=0;
-            for(let i=1;i<prices.length;i++){ let ch=prices[i]-prices[i-1]; if(ch>=0) gains+=ch; else losses-=ch; }
-            let avgGain=gains/14, avgLoss=losses/14, rs=avgLoss===0?100:avgGain/avgLoss, rsi=100-(100/(1+rs));
-            let ema12=calculateEMA(prices,12), ema26=calculateEMA(prices,26), macd=ema12-ema26, confidence=50,signal=null;
-            if(rsi<30){ signal="RISE"; confidence=75+(30-rsi); if(macd<0) confidence+=10; }
-            else if(rsi>70){ signal="FALL"; confidence=75+(rsi-70); if(macd>0) confidence+=10; }
-            confidence=Math.min(95,Math.max(50,confidence));
-            if(signal && confidence>68) return { signal, confidence:Math.round(confidence), reasons:[`RSI: ${rsi.toFixed(1)}`] };
+        function analyzeRiseFall() {
+            if (priceData.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return null;
+            const prices = priceData.slice(-50);
+            const prevPrices = priceData.slice(-51, -1);
+            const rsi = calculateRSI(prices, 14);
+            const ema9 = calculateEMA(prices, 9);
+            const ema21 = calculateEMA(prices, 21);
+            const prevEma9 = prevPrices.length >= 9 ? calculateEMA(prevPrices, 9) : ema9;
+            const prevEma21 = prevPrices.length >= 21 ? calculateEMA(prevPrices, 21) : ema21;
+            const momentum = prices[prices.length - 1] - prices[Math.max(0, prices.length - 6)];
+            let signal = null, confidence = 50;
+            const reasons = [`RSI: ${rsi.toFixed(1)}`, `EMA: ${ema9 > ema21 ? 'Bullish' : 'Bearish'}`];
+            if (rsi < 35 && momentum <= 0) { signal = "RISE"; confidence = 58 + (35 - rsi) * 1.2; reasons.push("Oversold bounce"); }
+            else if (rsi > 65 && momentum >= 0) { signal = "FALL"; confidence = 58 + (rsi - 65) * 1.2; reasons.push("Overbought pullback"); }
+            else if (prevEma9 <= prevEma21 && ema9 > ema21) { signal = "RISE"; confidence = 62 + Math.min(18, Math.abs(ema9 - ema21) * 80); reasons.push("EMA crossover up"); }
+            else if (prevEma9 >= prevEma21 && ema9 < ema21) { signal = "FALL"; confidence = 62 + Math.min(18, Math.abs(ema21 - ema9) * 80); reasons.push("EMA crossover down"); }
+            confidence = Math.min(92, Math.max(50, confidence));
+            if (signal && confidence >= DERIV_CONFIG.MIN_CONFIDENCE) return { signal, confidence: Math.round(confidence), reasons };
             return null;
         }
-        function analyzeOverUnder(digit) {
-            if(digitsHistory.length<30) return null;
-            let overThresh=[2,3,4,5,6,7,8,9], bestOver=null,bestOverPct=0;
-            for(let t of overThresh){ let overCount=digitsHistory.filter(d=>d>t).length, pct=(overCount/digitsHistory.length)*100; if(pct>bestOverPct && pct>=65){ bestOverPct=pct; bestOver=t; } }
-            let underThresh=[1,2,3,4,5,6,7,8], bestUnder=null,bestUnderPct=0;
-            for(let t of underThresh){ let underCount=digitsHistory.filter(d=>d<t).length, pct=(underCount/digitsHistory.length)*100; if(pct>bestUnderPct && pct>=65){ bestUnderPct=pct; bestUnder=t; } }
-            if(bestOver!==null && bestOverPct>=68){ let prediction=digit>bestOver?"OVER":"UNDER"; return { signal:`${prediction} ${bestOver}`, confidence:bestOverPct, type:"over" }; }
-            if(bestUnder!==null && bestUnderPct>=68){ let prediction=digit<bestUnder?"UNDER":"OVER"; return { signal:`${prediction} ${bestUnder}`, confidence:bestUnderPct, type:"under" }; }
+        function analyzeOverUnder() {
+            const window = getAnalysisWindow();
+            if (window.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return null;
+            const lastDigit = window[window.length - 1];
+            let bestOver = null, bestOverPct = 0, bestUnder = null, bestUnderPct = 0;
+            for (let t = 2; t <= 9; t++) {
+                const overPct = (window.filter(d => d > t).length / window.length) * 100;
+                if (overPct > bestOverPct && overPct >= 60) { bestOverPct = overPct; bestOver = t; }
+            }
+            for (let t = 1; t <= 8; t++) {
+                const underPct = (window.filter(d => d < t).length / window.length) * 100;
+                if (underPct > bestUnderPct && underPct >= 60) { bestUnderPct = underPct; bestUnder = t; }
+            }
+            if (bestOver !== null && bestOverPct >= DERIV_CONFIG.MIN_CONFIDENCE) {
+                return { signal: `${lastDigit > bestOver ? 'OVER' : 'UNDER'} ${bestOver}`, confidence: bestOverPct, type: "over", reasons: [`Over ${bestOver}: ${bestOverPct.toFixed(1)}%`] };
+            }
+            if (bestUnder !== null && bestUnderPct >= DERIV_CONFIG.MIN_CONFIDENCE) {
+                return { signal: `${lastDigit < bestUnder ? 'UNDER' : 'OVER'} ${bestUnder}`, confidence: bestUnderPct, type: "under", reasons: [`Under ${bestUnder}: ${bestUnderPct.toFixed(1)}%`] };
+            }
             return null;
         }
         
@@ -548,49 +657,220 @@
         }
         
         function analyzeSignals(price, digit) {
-            if(!canAnalyze) return false;
+            if (!canAnalyze || !historyLoaded) return false;
             if (currentUserRole === 'restricted' && !isRestrictedSessionValid()) { alert("Daily session expired. Cooling mode active."); logoutAndClear(); return false; }
-            if(currentTradeType==='matches_differs' && !checkMatchesAccess()) { document.getElementById('currentSignal').innerHTML='<div class="text-red-400 text-center p-2"><i class="fas fa-lock"></i> Access Denied: Session code required for Matches/Differs</div>'; return false; }
-            let result=null;
-            if(currentTradeType==='over_under') result=analyzeOverUnder(digit);
-            else if(currentTradeType==='even_odd') result=analyzeEvenOdd(digit);
-            else if(currentTradeType==='matches_differs') result=analyzeMatchesDiffers(digit);
-            else if(currentTradeType==='rise_fall') result=analyzeRiseFall(price);
-            if(result && result.confidence>=68){
-                let extraData=null;
-                if(currentTradeType==='matches_differs' && result.lastDigit!==undefined) extraData={ digit:result.lastDigit, type:result.type };
+            if (currentTradeType === 'matches_differs' && !checkMatchesAccess()) { document.getElementById('currentSignal').innerHTML = '<div class="text-red-400 text-center p-2"><i class="fas fa-lock"></i> Access Denied: Session code required for Matches/Differs</div>'; return false; }
+            if (digitsHistory.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return false;
+            let result = null;
+            if (currentTradeType === 'over_under') result = analyzeOverUnder();
+            else if (currentTradeType === 'even_odd') result = analyzeEvenOdd();
+            else if (currentTradeType === 'matches_differs') result = analyzeMatchesDiffers();
+            else if (currentTradeType === 'rise_fall') result = analyzeRiseFall();
+            if (result && result.confidence >= DERIV_CONFIG.MIN_CONFIDENCE) {
+                let extraData = null;
+                if (currentTradeType === 'matches_differs' && result.lastDigit !== undefined) extraData = { digit: result.lastDigit, type: result.type };
                 generateSignal(result.signal, result.confidence, result.reasons || [], extraData);
-                canAnalyze=false;
+                canAnalyze = false;
                 return true;
             }
             return false;
         }
-        
-        // Rest of original functions: updateUI, handleNewTick, connectDeriv, initCharts etc. (kept intact, only added timer validation)
-        // For brevity, copy from original but they are unchanged. We'll embed them.
-        function updateUI() { let total=digitsHistory.length||1; let digitsData=Array(10).fill(0); digitsHistory.forEach(d=>{if(d>=0&&d<=9) digitsData[d]++;}); document.getElementById('dominantDigit').innerText=digitsData.indexOf(Math.max(...digitsData)); let statsDiv=document.getElementById('digitsStats'); if(statsDiv) statsDiv.innerHTML=digitsData.map((c,i)=>`<div class="flex justify-between items-center text-xs"><span class="w-5 font-bold" style="color:${getDigitColor(i)}">${i}</span><div class="flex-1 mx-2 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full" style="width:${(c/total)*100}%; background:${getDigitColor(i)}"></div></div><span>${c}</span><span class="text-gray-400">${((c/total)*100).toFixed(1)}%</span></div>`).join(''); if(priceData.length){ let lp=priceData[priceData.length-1]; document.getElementById('lastPrice').innerText=lp.toFixed(4); document.getElementById('highPrice').innerText=Math.max(...priceData).toFixed(4); document.getElementById('lowPrice').innerText=Math.min(...priceData).toFixed(4); let ch=((lp-priceData[priceData.length-2])/priceData[priceData.length-2]*100); document.getElementById('priceChange').innerHTML=`${ch>=0?'+':''}${ch.toFixed(2)}%`; document.getElementById('priceChange').className=`font-bold ${ch>=0?'text-green-400':'text-red-400'}`; } let ldpDiv=document.getElementById('ldpGrid'); let last20=[...digitsHistory].slice(-20).reverse(); if(ldpDiv) ldpDiv.innerHTML=last20.map(d=>`<div class="ldp-digit ldp-digit-${d} text-center">${d}</div>`).join(''); document.getElementById('currentLastDigit').innerHTML=last20.length?last20[0]:'---'; for(let i=2;i<=9;i++){ let cnt=digitsHistory.filter(d=>d>i).length; let pct=(cnt/total)*100; if(document.getElementById(`over${i}Percent`)) document.getElementById(`over${i}Percent`).innerText=`${pct.toFixed(1)}%`; } for(let i=1;i<=8;i++){ let cnt=digitsHistory.filter(d=>d<i).length; let pct=(cnt/total)*100; if(document.getElementById(`under${i}Percent`)) document.getElementById(`under${i}Percent`).innerText=`${pct.toFixed(1)}%`; } if(digitsChart){ digitsChart.data.datasets[0].data=digitsData; digitsChart.update(); } }
-        function handleNewTick(tick){ let price=parseFloat(tick.quote); if(isNaN(price)) return; if(tick.subscription&&!currentSubscriptionId) currentSubscriptionId=tick.subscription.id; priceData.push(price); digitsHistory.push(getDigitFromPrice(price)); if(priceData.length>1000){ priceData=priceData.slice(-1000); digitsHistory=digitsHistory.slice(-1000); } MARKET_DATA[currentMarket]={priceData:[...priceData],digitsHistory:[...digitsHistory]}; updateUI(); if(priceChart){ priceChart.data.datasets[0].data=priceData.slice(-100); priceChart.update(); } if(canAnalyze && digitsHistory.length>=30) analyzeSignals(price, digitsHistory[digitsHistory.length-1]); }
-        function connectDeriv(){ if(ws) ws.close(); ws=new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089"); ws.onopen=()=>{ getTickHistory(currentMarket); subscribeToMarket(currentMarket); setInterval(()=>{ if(ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({ping:1})); },30000); }; ws.onmessage=(e)=>{ let data=JSON.parse(e.data); if(data.pong) return; if(data.tick) handleNewTick(data.tick); if(data.history && data.history.prices) { let prices=data.history.prices.map(p=>parseFloat(p)); priceData=prices; digitsHistory=prices.map(p=>getDigitFromPrice(p)); updateUI(); if(priceChart){ priceChart.data.datasets[0].data=priceData.slice(-100); priceChart.update(); } } }; ws.onclose=()=>setTimeout(connectDeriv,5000); }
-        function subscribeToMarket(sym){ if(ws?.readyState===WebSocket.OPEN){ if(currentSubscriptionId) ws.send(JSON.stringify({forget:currentSubscriptionId, req_id:Date.now()})); ws.send(JSON.stringify({ticks:sym,subscribe:1,req_id:Date.now()})); } }
-        function getTickHistory(sym){ let cnt=parseInt(document.getElementById("tickSelector")?.value||"1000"); if(ws?.readyState===WebSocket.OPEN) ws.send(JSON.stringify({ticks_history:sym,adjust_start_time:1,count:cnt,end:"latest",style:"ticks",req_id:Date.now()})); }
-        function resetAnalysis(){ canAnalyze=true; document.getElementById('floatingAnalyseBtn').style.transform='scale(1.1)'; setTimeout(()=>document.getElementById('floatingAnalyseBtn').style.transform='',300); speak("KAIRON quantum analysis activated."); if(digitsHistory.length>=30) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); }
-        function initMarketDropdown(){ let content=document.getElementById('marketDropdownContent'); if(content){ content.innerHTML=ALL_MARKETS.map(m=>`<div class="market-dropdown-item ${currentMarket===m?'active':''}" data-market="${m}"><i class="fas fa-chart-line mr-2"></i>${MARKET_NAMES[m]}</div>`).join(''); document.querySelectorAll('.market-dropdown-item').forEach(el=>el.addEventListener('click',()=>{ let m=el.dataset.market; currentMarket=m; document.getElementById('selectedMarketText').innerText=MARKET_NAMES[m]; if(MARKET_DATA[m]?.priceData){ priceData=[...MARKET_DATA[m].priceData]; digitsHistory=[...MARKET_DATA[m].digitsHistory]; updateUI(); priceChart.data.datasets[0].data=priceData.slice(-100); priceChart.update(); } else getTickHistory(m); subscribeToMarket(m); canAnalyze=true; })); }
-            document.getElementById('marketDropdownBtn')?.addEventListener('click',(e)=>{ e.stopPropagation(); content.classList.toggle('show'); });
-            document.addEventListener('click',()=>content?.classList.remove('show'));
+
+        function trimMarketData(sym) {
+            const data = MARKET_DATA[sym];
+            if (data.priceData.length > DERIV_CONFIG.MAX_HISTORY) {
+                data.priceData = data.priceData.slice(-DERIV_CONFIG.MAX_HISTORY);
+                data.digitsHistory = data.digitsHistory.slice(-DERIV_CONFIG.MAX_HISTORY);
+            }
+        }
+        function syncCurrentMarketFromStore(sym) {
+            const data = MARKET_DATA[sym];
+            priceData = [...data.priceData];
+            digitsHistory = [...data.digitsHistory];
+            tickCount = priceData.length;
+            historyLoaded = tickCount >= DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS;
+        }
+        function applyMarketDataToUI() {
+            updateUI();
+            updateIndicators();
+            if (priceChart) { priceChart.data.datasets[0].data = priceData.slice(-100); priceChart.update('none'); }
+            const display = document.getElementById('currentMarketDisplay');
+            if (display) display.textContent = MARKET_NAMES[currentMarket];
+        }
+        function ingestDerivTick(tick) {
+            const sym = tick.symbol || currentMarket;
+            if (tick.pip_size) MARKET_PIP_SIZES[sym] = tick.pip_size;
+            if (tick.epoch && MARKET_DATA[sym].lastEpoch === tick.epoch) return false;
+            const price = parseFloat(tick.quote);
+            if (isNaN(price)) return false;
+            const digit = getDigitFromQuote(tick.quote, tick.pip_size, sym);
+            if (tick.epoch) MARKET_DATA[sym].lastEpoch = tick.epoch;
+            MARKET_DATA[sym].priceData.push(price);
+            MARKET_DATA[sym].digitsHistory.push(digit);
+            trimMarketData(sym);
+            if (sym !== currentMarket) return true;
+            syncCurrentMarketFromStore(sym);
+            applyMarketDataToUI();
+            updateConnectionStatus('connected', `Live · ${tickCount} ticks`);
+            return true;
+        }
+        function loadDerivHistory(history, symbol) {
+            const sym = symbol || currentMarket;
+            const pipSize = MARKET_PIP_SIZES[sym];
+            const prices = history.prices.map(p => parseFloat(p));
+            const digits = history.prices.map(p => getDigitFromQuote(p, pipSize, sym));
+            const lastEpoch = history.times?.length ? history.times[history.times.length - 1] : null;
+            MARKET_DATA[sym] = { priceData: prices, digitsHistory: digits, lastEpoch };
+            trimMarketData(sym);
+            if (sym === currentMarket) {
+                syncCurrentMarketFromStore(sym);
+                historyLoaded = tickCount >= DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS;
+                applyMarketDataToUI();
+                updateConnectionStatus('connected', `Live · ${tickCount} ticks`);
+                const signalEl = document.getElementById('currentSignal');
+                if (signalEl && !historyLoaded) signalEl.innerHTML = '<div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Loading Deriv tick history...</p>';
+                else if (signalEl && historyLoaded) signalEl.innerHTML = '<p class="text-xs text-green-400"><i class="fas fa-check-circle mr-1"></i>Deriv feed ready. Press ANALYSE MARKET.</p>';
+            }
+        }
+        function onLiveTickReceived() {
+            if (!canAnalyze || !historyLoaded || digitsHistory.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return;
+            analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]);
+        }
+        function handleDerivMessage(e) {
+            let data;
+            try { data = JSON.parse(e.data); } catch { return; }
+            if (data.error) {
+                console.error('Deriv API error:', data.error);
+                updateConnectionStatus('error', data.error.message || 'Deriv API error');
+                return;
+            }
+            if (data.msg_type === 'pong' || data.pong) return;
+            if (data.subscription?.id) currentSubscriptionId = data.subscription.id;
+            if (data.msg_type === 'history' && data.history?.prices) {
+                const sym = data.echo_req?.ticks_history || currentMarket;
+                loadDerivHistory(data.history, sym);
+                subscribeToMarket(sym);
+                return;
+            }
+            if (data.msg_type === 'tick' && data.tick) {
+                if (ingestDerivTick(data.tick)) onLiveTickReceived();
+            }
+        }
+        function connectDeriv() {
+            if (pingIntervalId) clearInterval(pingIntervalId);
+            if (ws) { ws.onclose = null; ws.close(); }
+            updateConnectionStatus('connecting', 'Connecting to Deriv...');
+            historyLoaded = false;
+            ws = new WebSocket(`${DERIV_CONFIG.WS_URL}?app_id=${DERIV_CONFIG.APP_ID}`);
+            ws.onopen = () => {
+                updateConnectionStatus('loading', 'Loading tick history...');
+                getTickHistory(currentMarket);
+                pingIntervalId = setInterval(() => {
+                    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ ping: 1 }));
+                }, DERIV_CONFIG.PING_INTERVAL);
+            };
+            ws.onmessage = handleDerivMessage;
+            ws.onerror = () => updateConnectionStatus('error', 'Deriv connection error');
+            ws.onclose = () => {
+                updateConnectionStatus('connecting', 'Reconnecting to Deriv...');
+                setTimeout(connectDeriv, DERIV_CONFIG.RECONNECT_DELAY);
+            };
+        }
+        function subscribeToMarket(sym) {
+            if (ws?.readyState !== WebSocket.OPEN) return;
+            if (currentSubscriptionId) ws.send(JSON.stringify({ forget: currentSubscriptionId, req_id: Date.now() }));
+            ws.send(JSON.stringify({ ticks: sym, subscribe: 1, req_id: Date.now() }));
+        }
+        function getTickHistory(sym) {
+            const cnt = Math.min(parseInt(document.getElementById("tickSelector")?.value || "1000", 10), DERIV_CONFIG.MAX_HISTORY);
+            historyLoaded = false;
+            if (ws?.readyState === WebSocket.OPEN) {
+                updateConnectionStatus('loading', `Fetching ${cnt} ticks...`);
+                ws.send(JSON.stringify({ ticks_history: sym, adjust_start_time: 1, count: cnt, end: "latest", style: "ticks", req_id: Date.now() }));
+            }
+        }
+        function updateUI() {
+            const total = digitsHistory.length || 1;
+            const digitsData = Array(10).fill(0);
+            digitsHistory.forEach(d => { if (d >= 0 && d <= 9) digitsData[d]++; });
+            document.getElementById('dominantDigit').innerText = digitsData.indexOf(Math.max(...digitsData));
+            const statsDiv = document.getElementById('digitsStats');
+            if (statsDiv) statsDiv.innerHTML = digitsData.map((c, i) => `<div class="flex justify-between items-center text-xs"><span class="w-5 font-bold" style="color:${getDigitColor(i)}">${i}</span><div class="flex-1 mx-2 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full" style="width:${(c / total) * 100}%; background:${getDigitColor(i)}"></div></div><span>${c}</span><span class="text-gray-400">${((c / total) * 100).toFixed(1)}%</span></div>`).join('');
+            if (priceData.length) {
+                const lp = priceData[priceData.length - 1];
+                const pip = MARKET_PIP_SIZES[currentMarket] ?? 2;
+                document.getElementById('lastPrice').innerText = lp.toFixed(pip);
+                document.getElementById('highPrice').innerText = Math.max(...priceData).toFixed(pip);
+                document.getElementById('lowPrice').innerText = Math.min(...priceData).toFixed(pip);
+                if (priceData.length > 1) {
+                    const ch = ((lp - priceData[priceData.length - 2]) / priceData[priceData.length - 2] * 100);
+                    document.getElementById('priceChange').innerHTML = `${ch >= 0 ? '+' : ''}${ch.toFixed(2)}%`;
+                    document.getElementById('priceChange').className = `font-bold ${ch >= 0 ? 'text-green-400' : 'text-red-400'}`;
+                }
+            }
+            const ldpDiv = document.getElementById('ldpGrid');
+            const last20 = [...digitsHistory].slice(-20).reverse();
+            if (ldpDiv) ldpDiv.innerHTML = last20.map(d => `<div class="ldp-digit ldp-digit-${d} text-center">${d}</div>`).join('');
+            document.getElementById('currentLastDigit').innerHTML = last20.length ? last20[0] : '---';
+            for (let i = 2; i <= 9; i++) {
+                const pct = (digitsHistory.filter(d => d > i).length / total) * 100;
+                if (document.getElementById(`over${i}Percent`)) document.getElementById(`over${i}Percent`).innerText = `${pct.toFixed(1)}%`;
+            }
+            for (let i = 1; i <= 8; i++) {
+                const pct = (digitsHistory.filter(d => d < i).length / total) * 100;
+                if (document.getElementById(`under${i}Percent`)) document.getElementById(`under${i}Percent`).innerText = `${pct.toFixed(1)}%`;
+            }
+            if (digitsChart) { digitsChart.data.datasets[0].data = digitsData; digitsChart.update('none'); }
+        }
+        function resetAnalysis() {
+            canAnalyze = true;
+            document.getElementById('floatingAnalyseBtn').style.transform = 'scale(1.1)';
+            setTimeout(() => document.getElementById('floatingAnalyseBtn').style.transform = '', 300);
+            speak("KAIRON analysis activated on live Deriv data.");
+            if (historyLoaded && digitsHistory.length >= DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) {
+                analyzeSignals(priceData[priceData.length - 1], digitsHistory[digitsHistory.length - 1]);
+            } else speak("Waiting for Deriv tick history.");
+        }
+        function switchMarket(m) {
+            currentMarket = m;
+            document.getElementById('selectedMarketText').innerText = MARKET_NAMES[m];
+            if (MARKET_DATA[m]?.priceData?.length) {
+                syncCurrentMarketFromStore(m);
+                applyMarketDataToUI();
+                subscribeToMarket(m);
+            } else {
+                priceData = [];
+                digitsHistory = [];
+                tickCount = 0;
+                historyLoaded = false;
+                updateConnectionStatus('loading', `Loading ${MARKET_NAMES[m]}...`);
+                getTickHistory(m);
+            }
+            canAnalyze = true;
+        }
+        function initMarketDropdown() {
+            const content = document.getElementById('marketDropdownContent');
+            if (content) {
+                content.innerHTML = ALL_MARKETS.map(m => `<div class="market-dropdown-item ${currentMarket === m ? 'active' : ''}" data-market="${m}"><i class="fas fa-chart-line mr-2"></i>${MARKET_NAMES[m]}</div>`).join('');
+                document.querySelectorAll('.market-dropdown-item').forEach(el => el.addEventListener('click', () => switchMarket(el.dataset.market)));
+            }
+            document.getElementById('marketDropdownBtn')?.addEventListener('click', (e) => { e.stopPropagation(); content.classList.toggle('show'); });
+            document.addEventListener('click', () => content?.classList.remove('show'));
         }
         function initCharts(){ let ctx=document.getElementById('priceChart')?.getContext('2d'); if(ctx) priceChart=new Chart(ctx,{type:'line',data:{datasets:[{label:'Price',data:[],borderColor:'#667eea',backgroundColor:'rgba(102,126,234,0.1)',tension:0.4,fill:true,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#374151'},ticks:{color:'#9CA3AF'}},x:{display:false}}}});
             let dctx=document.getElementById('digitsDonut')?.getContext('2d'); if(dctx) digitsChart=new Chart(dctx,{type:'doughnut',data:{labels:['0','1','2','3','4','5','6','7','8','9'],datasets:[{data:Array(10).fill(0),backgroundColor:['#ef4444','#f59e0b','#eab308','#84cc16','#10b981','#06b6d4','#3b82f6','#8b5cf6','#d946ef','#ec4899'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',font:{size:9}}}}}}); }
         function startTradingApp(){
             initMarketDropdown(); initCharts(); connectDeriv();
             document.getElementById('floatingAnalyseBtn')?.addEventListener('click',resetAnalysis);
-            document.getElementById('manualAnalysisBtn')?.addEventListener('click',()=>{ if(priceData.length && digitsHistory.length>=30) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); else speak("Not enough data yet."); });
+            document.getElementById('manualAnalysisBtn')?.addEventListener('click',()=>{ if(historyLoaded && digitsHistory.length>=DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); else speak("Waiting for Deriv tick history."); });
+            document.getElementById('tickSelector')?.addEventListener('change',()=>getTickHistory(currentMarket));
             document.querySelectorAll('.trade-type-btn').forEach(btn=>{ btn.addEventListener('click',(e)=>{ let type=btn.dataset.type; if(type==='matches_differs' && currentUserRole==='restricted' && !checkMatchesAccess()){ alert("Access to Matches/Differs requires valid session code."); return; } document.querySelectorAll('.trade-type-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); currentTradeType=type; canAnalyze=true; speak(`Switched to ${type.replace('_',' ')} analysis.`); }); });
             document.getElementById('voiceToggleBtn')?.addEventListener('click',()=>{ voiceEnabled=!voiceEnabled; document.getElementById('voiceToggleBtn').innerHTML=voiceEnabled?'<i class="fas fa-volume-up"></i>':'<i class="fas fa-volume-mute"></i>'; if(voiceEnabled) speak("Voice alerts enabled."); });
             document.getElementById('refreshDataBtn')?.addEventListener('click',()=>getTickHistory(currentMarket));
             if (currentUserRole === 'restricted') updateRestrictedTimerDisplay();
-            speak("KAIRON systems operational. Press analyse market to begin.");
+            speak("KAIRON connected to Deriv live feed. Press analyse market to begin.");
         }
-        window.addEventListener("beforeunload",()=>{ if(ws) ws.close(); });
+        window.addEventListener("beforeunload",()=>{ if(pingIntervalId) clearInterval(pingIntervalId); if(ws) ws.close(); });
     </script>
 </body>
 </html>
