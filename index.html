@@ -148,6 +148,7 @@
         
         .trade-type-btn { transition: all 0.3s ease; cursor: pointer; }
         .trade-type-btn.active { background: linear-gradient(135deg, #667eea, #764ba2); transform: scale(1.02); }
+        #backtestToggleBtn.active { background: linear-gradient(135deg, #f59e0b, #ea580c); border-color: #f59e0b; color: white; }
         
         .ldp-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; }
         .ldp-digit { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border-radius: 8px; }
@@ -243,6 +244,7 @@
                             </select>
                         </div>
                     </div>
+                    <button id="backtestToggleBtn" class="px-3 py-1 bg-gray-700 rounded-lg text-xs hover:bg-gray-600 transition border border-gray-600" title="Scan loaded tick history for signal accuracy"><i class="fas fa-flask mr-1"></i>Backtest: OFF</button>
                     <button id="refreshDataBtn" class="px-3 py-1 bg-purple-600 rounded-lg text-xs hover:bg-purple-700 transition"><i class="fas fa-sync-alt mr-1"></i>Refresh</button>
                 </div>
                 
@@ -260,6 +262,33 @@
                     <div class="space-y-3 md:space-y-4">
                         <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-bullhorn mr-2 text-yellow-400"></i>Live Signals</h3><div id="currentSignal" class="mb-3 p-3 rounded-lg text-center bg-gray-800/50 min-h-[120px]"><div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Connecting to Deriv live feed...</p></div><div class="mb-3"><div class="flex justify-between text-xs mb-1"><span>Signal Confidence</span><span id="confidencePercent">0%</span></div><div class="w-full bg-gray-700 rounded-full h-2"><div id="confidenceBar" class="confidence-bar h-2 rounded-full" style="width: 0%"></div></div></div><div class="space-y-1 md:space-y-2"><h4 class="text-[10px] md:text-xs font-semibold text-gray-400">Technical Indicators</h4><div id="indicators" class="space-y-1 text-[10px] md:text-xs"></div></div><button id="manualAnalysisBtn" class="mt-3 w-full py-1.5 md:py-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg text-xs md:text-sm font-semibold hover:shadow-lg transition"><i class="fas fa-chart-line mr-1"></i>Run Analysis</button></div>
                         <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4"><h3 class="text-sm md:text-base font-semibold mb-2 md:mb-3"><i class="fas fa-history mr-2 text-green-400"></i>Signal History</h3><div id="signalHistory" class="space-y-1 max-h-40 md:max-h-48 overflow-y-auto"><p class="text-center text-gray-500 text-xs py-4">No signals yet</p></div></div>
+                        <div class="glass-card rounded-xl md:rounded-2xl p-3 md:p-4">
+                            <div class="flex justify-between items-center mb-2 md:mb-3">
+                                <h3 class="text-sm md:text-base font-semibold"><i class="fas fa-crosshairs mr-2 text-cyan-400"></i>Signal Accuracy</h3>
+                                <button id="clearAccuracyBtn" class="text-[10px] text-gray-400 hover:text-red-400 transition">Clear</button>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 mb-3 text-center">
+                                <div class="bg-gray-800/30 rounded-lg p-2"><p class="text-[10px] text-gray-400">Win Rate</p><p id="accuracyWinRate" class="text-lg font-bold text-green-400">—</p></div>
+                                <div class="bg-gray-800/30 rounded-lg p-2"><p class="text-[10px] text-gray-400">Wins</p><p id="accuracyWins" class="text-lg font-bold text-green-400">0</p></div>
+                                <div class="bg-gray-800/30 rounded-lg p-2"><p class="text-[10px] text-gray-400">Losses</p><p id="accuracyLosses" class="text-lg font-bold text-red-400">0</p></div>
+                            </div>
+                            <div id="accuracyModeLabel" class="text-[10px] text-gray-500 mb-2">Live tracking</div>
+                            <div id="accuracyByType" class="space-y-1 text-[10px] mb-3"></div>
+                            <div id="accuracyPending" class="text-[10px] text-amber-400 mb-2 hidden"></div>
+                            <div id="accuracyLog" class="space-y-1 max-h-32 overflow-y-auto text-[10px]"><p class="text-center text-gray-500 py-2">No results yet</p></div>
+                            <div id="backtestPanel" class="hidden mt-3 pt-3 border-t border-gray-700">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h4 class="text-xs font-semibold text-orange-400"><i class="fas fa-flask mr-1"></i>Backtest Scan</h4>
+                                    <span id="backtestScanInfo" class="text-[10px] text-gray-500"></span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mb-2 text-center">
+                                    <div class="bg-orange-900/20 rounded-lg p-2"><p class="text-[10px] text-gray-400">BT Win Rate</p><p id="backtestWinRate" class="text-base font-bold text-orange-400">—</p></div>
+                                    <div class="bg-orange-900/20 rounded-lg p-2"><p class="text-[10px] text-gray-400">Signals Found</p><p id="backtestSignalCount" class="text-base font-bold text-white">0</p></div>
+                                </div>
+                                <div id="backtestProgress" class="text-[10px] text-amber-400 mb-2 hidden"><i class="fas fa-spinner fa-spin mr-1"></i>Scanning history...</div>
+                                <div id="backtestLog" class="space-y-1 max-h-28 overflow-y-auto text-[10px]"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -508,6 +537,12 @@
         const ALL_MARKETS = Object.keys(MARKET_NAMES);
         let ws = null, currentMarket = 'R_100', currentTradeType = 'rise_fall', digitsHistory = [], priceData = [], signalHistory = [], voiceEnabled = true, lastVoiceTime = 0, canAnalyze = true, priceChart = null, digitsChart = null, currentSubscriptionId = null;
         let tickCount = 0, historyLoaded = false, pingIntervalId = null;
+        let pendingSignal = null;
+        let backtestMode = false;
+        let backtestRunning = false;
+        let backtestStats = { wins: 0, losses: 0, signals: 0, ticksScanned: 0, log: [], avgConfidence: 0 };
+        const accuracyStats = { wins: 0, losses: 0, byType: {}, log: [] };
+        const ACCURACY_STORAGE_KEY = 'kairon_accuracy_stats';
         const MARKET_DATA = {};
         ALL_MARKETS.forEach(m => { MARKET_DATA[m] = { digitsHistory: [], priceData: [], lastEpoch: null }; });
 
@@ -549,6 +584,9 @@
         function getAnalysisWindow() {
             return digitsHistory.slice(-DERIV_CONFIG.ANALYSIS_WINDOW);
         }
+        function getWindowSlice(arr, endIdx, size) {
+            return arr.slice(Math.max(0, endIdx - size + 1), endIdx + 1);
+        }
         function updateIndicators() {
             const el = document.getElementById('indicators');
             if (!el || priceData.length < 10) return;
@@ -562,8 +600,7 @@
             el.innerHTML = `<div class="flex justify-between"><span class="text-gray-400">RSI (14)</span><span class="${rsi < 35 ? 'text-green-400' : rsi > 65 ? 'text-red-400' : 'text-white'}">${rsi.toFixed(1)}</span></div><div class="flex justify-between"><span class="text-gray-400">Trend</span><span class="${ema9 > ema21 ? 'text-green-400' : 'text-red-400'}">${ema9 > ema21 ? 'Bullish' : 'Bearish'}</span></div><div class="flex justify-between"><span class="text-gray-400">Last Digit</span><span class="font-bold" style="color:${getDigitColor(lastDigit)}">${lastDigit ?? '-'}</span></div><div class="flex justify-between"><span class="text-gray-400">Even % (20 ticks)</span><span>${evenPct}%</span></div><div class="flex justify-between"><span class="text-gray-400">Data source</span><span class="text-green-400">${tickCount} Deriv ticks</span></div>`;
         }
 
-        function analyzeEvenOdd() {
-            const window = getAnalysisWindow();
+        function analyzeEvenOddOnWindow(window) {
             if (window.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return null;
             const evenCount = window.filter(d => d % 2 === 0).length;
             const evenPct = (evenCount / window.length) * 100;
@@ -573,9 +610,7 @@
             if (oddPct >= 62) return { signal: "ODD", confidence: oddPct, type: "odd", reasons };
             return null;
         }
-        function analyzeMatchesDiffers() {
-            if (!checkMatchesAccess()) return null;
-            const window = getAnalysisWindow();
+        function analyzeMatchesDiffersOnWindow(window) {
             if (window.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return null;
             const lastDigit = window[window.length - 1];
             let matches = 0, differs = 0;
@@ -590,10 +625,8 @@
             if (differsPct >= 62) return { signal: "DIFFERS", confidence: differsPct, type: "differs", lastDigit, reasons };
             return null;
         }
-        function analyzeRiseFall() {
-            if (priceData.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return null;
-            const prices = priceData.slice(-50);
-            const prevPrices = priceData.slice(-51, -1);
+        function analyzeRiseFallOnPrices(prices, prevPrices) {
+            if (prices.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return null;
             const rsi = calculateRSI(prices, 14);
             const ema9 = calculateEMA(prices, 9);
             const ema21 = calculateEMA(prices, 21);
@@ -610,8 +643,7 @@
             if (signal && confidence >= DERIV_CONFIG.MIN_CONFIDENCE) return { signal, confidence: Math.round(confidence), reasons };
             return null;
         }
-        function analyzeOverUnder() {
-            const window = getAnalysisWindow();
+        function analyzeOverUnderOnWindow(window) {
             if (window.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return null;
             const lastDigit = window[window.length - 1];
             let bestOver = null, bestOverPct = 0, bestUnder = null, bestUnderPct = 0;
@@ -631,7 +663,314 @@
             }
             return null;
         }
+        function analyzeEvenOdd() { return analyzeEvenOddOnWindow(getAnalysisWindow()); }
+        function analyzeMatchesDiffers() { if (!checkMatchesAccess()) return null; return analyzeMatchesDiffersOnWindow(getAnalysisWindow()); }
+        function analyzeRiseFall() { return analyzeRiseFallOnPrices(priceData.slice(-50), priceData.slice(-51, -1)); }
+        function analyzeOverUnder() { return analyzeOverUnderOnWindow(getAnalysisWindow()); }
+        function runAnalysisAt(prices, digits, tradeType, endIdx) {
+            const digitWindow = getWindowSlice(digits, endIdx, DERIV_CONFIG.ANALYSIS_WINDOW);
+            if (tradeType === 'even_odd') return analyzeEvenOddOnWindow(digitWindow);
+            if (tradeType === 'matches_differs') return analyzeMatchesDiffersOnWindow(digitWindow);
+            if (tradeType === 'over_under') return analyzeOverUnderOnWindow(digitWindow);
+            if (tradeType === 'rise_fall') {
+                const priceWindow = getWindowSlice(prices, endIdx, 50);
+                const prevWindow = prices.slice(Math.max(0, endIdx - 50), endIdx);
+                return analyzeRiseFallOnPrices(priceWindow, prevWindow);
+            }
+            return null;
+        }
+        function resolveSignalOutcome(tradeType, signal, result, priceAt, digitAt, nextPrice, nextDigit) {
+            let won = false, actual = '';
+            if (tradeType === 'rise_fall') {
+                actual = nextPrice > priceAt ? 'RISE' : nextPrice < priceAt ? 'FALL' : 'SAME';
+                won = (signal === 'RISE' && nextPrice > priceAt) || (signal === 'FALL' && nextPrice < priceAt);
+            } else if (tradeType === 'even_odd') {
+                actual = nextDigit % 2 === 0 ? 'EVEN' : 'ODD';
+                won = signal === actual;
+            } else if (tradeType === 'matches_differs') {
+                actual = String(nextDigit);
+                won = result.type === 'matches' ? nextDigit === result.lastDigit : nextDigit !== result.lastDigit;
+            } else if (tradeType === 'over_under') {
+                const parts = signal.split(' ');
+                const direction = parts[0];
+                const threshold = parseInt(parts[1], 10);
+                actual = String(nextDigit);
+                won = direction === 'OVER' ? nextDigit > threshold : nextDigit < threshold;
+            }
+            return { won, actual };
+        }
         
+        function loadAccuracyStats() {
+            try {
+                const saved = localStorage.getItem(ACCURACY_STORAGE_KEY);
+                if (!saved) return;
+                const data = JSON.parse(saved);
+                accuracyStats.wins = data.wins || 0;
+                accuracyStats.losses = data.losses || 0;
+                accuracyStats.byType = data.byType || {};
+                accuracyStats.log = data.log || [];
+            } catch (e) { /* ignore corrupt storage */ }
+        }
+        function saveAccuracyStats() {
+            localStorage.setItem(ACCURACY_STORAGE_KEY, JSON.stringify({
+                wins: accuracyStats.wins,
+                losses: accuracyStats.losses,
+                byType: accuracyStats.byType,
+                log: accuracyStats.log.slice(0, 50)
+            }));
+        }
+        function clearAccuracyStats() {
+            pendingSignal = null;
+            accuracyStats.wins = 0;
+            accuracyStats.losses = 0;
+            accuracyStats.byType = {};
+            accuracyStats.log = [];
+            localStorage.removeItem(ACCURACY_STORAGE_KEY);
+            renderAccuracyTracker();
+        }
+        function registerPendingSignal(signal, confidence, extra) {
+            pendingSignal = {
+                id: Date.now(),
+                signal,
+                tradeType: currentTradeType,
+                market: currentMarket,
+                confidence,
+                priceAtSignal: priceData[priceData.length - 1],
+                digitAtSignal: digitsHistory[digitsHistory.length - 1],
+                referenceDigit: extra?.digit ?? null,
+                matchType: extra?.type ?? null,
+                time: new Date().toLocaleTimeString()
+            };
+            renderAccuracyTracker();
+        }
+        function evaluateSignalOutcome(nextPrice, nextDigit) {
+            if (!pendingSignal || pendingSignal.market !== currentMarket) return;
+            const p = pendingSignal;
+            const { won, actual } = resolveSignalOutcome(
+                p.tradeType, p.signal,
+                { type: p.matchType, lastDigit: p.referenceDigit },
+                p.priceAtSignal, p.digitAtSignal, nextPrice, nextDigit
+            );
+
+            const result = {
+                signal: p.signal,
+                tradeType: p.tradeType,
+                market: MARKET_NAMES[p.market],
+                confidence: p.confidence,
+                won,
+                actual,
+                predicted: p.signal,
+                time: p.time,
+                resolvedAt: new Date().toLocaleTimeString()
+            };
+
+            if (won) accuracyStats.wins++;
+            else accuracyStats.losses++;
+
+            if (!accuracyStats.byType[p.tradeType]) accuracyStats.byType[p.tradeType] = { wins: 0, losses: 0 };
+            if (won) accuracyStats.byType[p.tradeType].wins++;
+            else accuracyStats.byType[p.tradeType].losses++;
+
+            accuracyStats.log.unshift(result);
+            if (accuracyStats.log.length > 50) accuracyStats.log.pop();
+
+            const histEntry = signalHistory.find(s => s.time === p.time && s.signal === p.signal);
+            if (histEntry) {
+                histEntry.outcome = won ? 'WIN' : 'LOSS';
+                histEntry.actual = actual;
+            }
+
+            pendingSignal = null;
+            saveAccuracyStats();
+            renderSignalHistory();
+            renderAccuracyTracker();
+
+            if (voiceEnabled) speak(won ? 'Signal correct.' : 'Signal incorrect.');
+        }
+        function renderSignalHistory() {
+            const histDiv = document.getElementById('signalHistory');
+            if (!histDiv) return;
+            if (!signalHistory.length) {
+                histDiv.innerHTML = '<p class="text-center text-gray-500 text-xs py-4">No signals yet</p>';
+                return;
+            }
+            histDiv.innerHTML = signalHistory.map(s => {
+                const bullish = s.signal === 'RISE' || s.signal.includes('OVER') || s.signal === 'EVEN' || s.signal === 'MATCHES';
+                let outcomeHtml = '';
+                if (s.outcome === 'WIN') outcomeHtml = '<span class="text-green-400 font-bold">✓</span>';
+                else if (s.outcome === 'LOSS') outcomeHtml = '<span class="text-red-400 font-bold">✗</span>';
+                else if (s.outcome === 'PENDING') outcomeHtml = '<span class="text-amber-400">…</span>';
+                return `<div class="flex justify-between items-center p-2 bg-gray-800/30 rounded text-xs gap-1"><div class="flex gap-1 items-center min-w-0"><i class="fas ${bullish ? 'fa-arrow-up text-green-400' : 'fa-arrow-down text-red-400'}"></i><span class="truncate">${s.signal.substring(0, 12)}</span>${outcomeHtml}</div><span class="text-gray-400 shrink-0">${s.time}</span><span class="text-green-400 shrink-0">${Math.round(s.confidence)}%</span></div>`;
+            }).join('');
+        }
+        function renderBacktestResults() {
+            const panel = document.getElementById('backtestPanel');
+            const winRateEl = document.getElementById('backtestWinRate');
+            const countEl = document.getElementById('backtestSignalCount');
+            const infoEl = document.getElementById('backtestScanInfo');
+            const logEl = document.getElementById('backtestLog');
+            const progressEl = document.getElementById('backtestProgress');
+
+            if (!backtestMode) {
+                panel?.classList.add('hidden');
+                return;
+            }
+            panel?.classList.remove('hidden');
+            progressEl?.classList.add('hidden');
+
+            const total = backtestStats.wins + backtestStats.losses;
+            if (winRateEl) winRateEl.textContent = total ? `${((backtestStats.wins / total) * 100).toFixed(1)}%` : '—';
+            if (countEl) countEl.textContent = backtestStats.signals;
+            if (infoEl) {
+                infoEl.textContent = backtestStats.signals
+                    ? `${backtestStats.wins}W/${backtestStats.losses}L · ${backtestStats.ticksScanned} ticks · avg ${backtestStats.avgConfidence.toFixed(0)}%`
+                    : `${backtestStats.ticksScanned} ticks scanned`;
+            }
+            if (logEl) {
+                if (!backtestStats.log.length) {
+                    logEl.innerHTML = '<p class="text-center text-gray-500 py-2">No signals met threshold in history</p>';
+                } else {
+                    logEl.innerHTML = backtestStats.log.slice(0, 30).map(r => {
+                        const icon = r.won ? '<i class="fas fa-check text-green-400"></i>' : '<i class="fas fa-times text-red-400"></i>';
+                        return `<div class="flex justify-between items-center p-1.5 bg-orange-900/10 rounded gap-1">${icon}<span class="truncate">${r.signal}</span><span class="text-gray-500 shrink-0">@${r.tickIdx}</span><span class="text-gray-500 shrink-0">→ ${r.actual}</span></div>`;
+                    }).join('');
+                }
+            }
+        }
+        function runBacktest() {
+            if (!backtestMode || backtestRunning) return;
+            if (!historyLoaded || digitsHistory.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS + 1) {
+                speak('Load more Deriv tick history before backtesting.');
+                const progressEl = document.getElementById('backtestProgress');
+                if (progressEl) {
+                    progressEl.classList.remove('hidden');
+                    progressEl.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>Need at least 51 ticks loaded';
+                }
+                return;
+            }
+
+            backtestRunning = true;
+            const progressEl = document.getElementById('backtestProgress');
+            if (progressEl) {
+                progressEl.classList.remove('hidden');
+                progressEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Scanning history...';
+            }
+
+            const prices = priceData;
+            const digits = digitsHistory;
+            const tradeType = currentTradeType;
+            const startIdx = DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS - 1;
+            const results = { wins: 0, losses: 0, signals: 0, ticksScanned: digits.length, log: [], confSum: 0 };
+            let skipUntil = -1;
+
+            setTimeout(() => {
+                for (let i = startIdx; i < digits.length - 1; i++) {
+                    if (i <= skipUntil) continue;
+                    const analysis = runAnalysisAt(prices, digits, tradeType, i);
+                    if (!analysis || analysis.confidence < DERIV_CONFIG.MIN_CONFIDENCE) continue;
+
+                    const outcome = resolveSignalOutcome(
+                        tradeType, analysis.signal, analysis,
+                        prices[i], digits[i], prices[i + 1], digits[i + 1]
+                    );
+
+                    results.signals++;
+                    results.confSum += analysis.confidence;
+                    if (outcome.won) results.wins++;
+                    else results.losses++;
+                    results.log.unshift({
+                        signal: analysis.signal,
+                        confidence: analysis.confidence,
+                        won: outcome.won,
+                        actual: outcome.actual,
+                        tickIdx: i + 1
+                    });
+                    skipUntil = i + 1;
+                }
+
+                backtestStats = {
+                    wins: results.wins,
+                    losses: results.losses,
+                    signals: results.signals,
+                    ticksScanned: results.ticksScanned,
+                    log: results.log,
+                    avgConfidence: results.signals ? results.confSum / results.signals : 0
+                };
+                backtestRunning = false;
+                renderBacktestResults();
+
+                const modeLabel = document.getElementById('accuracyModeLabel');
+                if (modeLabel) modeLabel.textContent = `Backtest · ${MARKET_NAMES[currentMarket]} · ${tradeType.replace('_', '/')}`;
+
+                if (voiceEnabled) {
+                    const rate = results.signals ? ((results.wins / results.signals) * 100).toFixed(0) : 0;
+                    speak(`Backtest complete. ${results.signals} signals. Win rate ${rate} percent.`);
+                }
+            }, 50);
+        }
+        function setBacktestMode(enabled) {
+            backtestMode = enabled;
+            const btn = document.getElementById('backtestToggleBtn');
+            if (btn) {
+                btn.classList.toggle('active', enabled);
+                btn.innerHTML = enabled
+                    ? '<i class="fas fa-flask mr-1"></i>Backtest: ON'
+                    : '<i class="fas fa-flask mr-1"></i>Backtest: OFF';
+            }
+            const modeLabel = document.getElementById('accuracyModeLabel');
+            if (modeLabel) modeLabel.textContent = enabled ? 'Backtest mode active' : 'Live tracking';
+
+            if (enabled) runBacktest();
+            else {
+                backtestRunning = false;
+                renderBacktestResults();
+            }
+        }
+        function renderAccuracyTracker() {
+            const total = accuracyStats.wins + accuracyStats.losses;
+            const winRateEl = document.getElementById('accuracyWinRate');
+            const winsEl = document.getElementById('accuracyWins');
+            const lossesEl = document.getElementById('accuracyLosses');
+            const byTypeEl = document.getElementById('accuracyByType');
+            const pendingEl = document.getElementById('accuracyPending');
+            const logEl = document.getElementById('accuracyLog');
+
+            if (winRateEl) winRateEl.textContent = total ? `${((accuracyStats.wins / total) * 100).toFixed(1)}%` : '—';
+            if (winsEl) winsEl.textContent = accuracyStats.wins;
+            if (lossesEl) lossesEl.textContent = accuracyStats.losses;
+
+            if (byTypeEl) {
+                const types = Object.keys(accuracyStats.byType);
+                byTypeEl.innerHTML = types.length ? types.map(type => {
+                    const t = accuracyStats.byType[type];
+                    const tTotal = t.wins + t.losses;
+                    const rate = tTotal ? ((t.wins / tTotal) * 100).toFixed(0) : 0;
+                    const label = type.replace('_', '/');
+                    return `<div class="flex justify-between bg-gray-800/20 rounded px-2 py-1"><span class="text-gray-400 capitalize">${label}</span><span>${t.wins}W / ${t.losses}L <span class="text-cyan-400">(${rate}%)</span></span></div>`;
+                }).join('') : '<p class="text-gray-500 text-center">Breakdown appears after first results</p>';
+            }
+
+            if (pendingEl) {
+                if (pendingSignal) {
+                    pendingEl.classList.remove('hidden');
+                    pendingEl.innerHTML = `<i class="fas fa-hourglass-half mr-1"></i>Waiting for next tick: <strong>${pendingSignal.signal}</strong> (${pendingSignal.time})`;
+                } else {
+                    pendingEl.classList.add('hidden');
+                }
+            }
+
+            if (logEl) {
+                if (!accuracyStats.log.length) {
+                    logEl.innerHTML = '<p class="text-center text-gray-500 py-2">No results yet</p>';
+                } else {
+                    logEl.innerHTML = accuracyStats.log.map(r => {
+                        const icon = r.won ? '<i class="fas fa-check text-green-400"></i>' : '<i class="fas fa-times text-red-400"></i>';
+                        return `<div class="flex justify-between items-center p-1.5 bg-gray-800/20 rounded gap-1">${icon}<span class="truncate">${r.signal}</span><span class="text-gray-500 shrink-0">→ ${r.actual}</span><span class="text-gray-500 shrink-0">${r.resolvedAt}</span></div>`;
+                    }).join('');
+                }
+            }
+        }
+
         function generateSignal(signal, confidence, reasons, extra=null) {
             const div = document.getElementById('currentSignal');
             if(div){
@@ -648,10 +987,10 @@
                 div.innerHTML = `${largeHtml}<i class="fas ${icon} text-3xl ${colorClass} mb-2 animate-pulse"></i><p class="text-2xl font-bold ${colorClass}">${signal} SIGNAL!</p><p class="text-sm">Confidence: ${Math.round(confidence)}%</p><div class="text-xs text-gray-400 mt-2">${reasons?.length? reasons.map(r=>`<span class="inline-block px-2 py-1 bg-gray-800 rounded mr-1">${r}</span>`).join('') : '<span class="px-2 py-1 bg-gray-800 rounded">Quantum pattern detected</span>'}</div><p class="text-xs text-gray-500 mt-2">${MARKET_NAMES[currentMarket]} | ${new Date().toLocaleTimeString()}</p>`;
             }
             if(voiceEnabled && Date.now()-lastVoiceTime>3000){ speak(`KAIRON signal: ${signal} with ${Math.round(confidence)} percent confidence.`); playAlertSound(); lastVoiceTime=Date.now(); }
-            signalHistory.unshift({ signal, confidence, time:new Date().toLocaleTimeString(), market:MARKET_NAMES[currentMarket] });
+            signalHistory.unshift({ signal, confidence, time:new Date().toLocaleTimeString(), market:MARKET_NAMES[currentMarket], outcome:'PENDING' });
             if(signalHistory.length>20) signalHistory.pop();
-            const histDiv=document.getElementById('signalHistory');
-            if(histDiv) histDiv.innerHTML = signalHistory.map(s=>`<div class="flex justify-between items-center p-2 bg-gray-800/30 rounded text-xs"><div class="flex gap-2"><i class="fas ${(s.signal==='RISE'||s.signal.includes('OVER')||s.signal==='EVEN'||s.signal==='MATCHES')?'fa-arrow-up text-green-400':'fa-arrow-down text-red-400'}"></i><span>${s.signal.substring(0,15)}</span></div><span class="text-gray-400">${s.market.substring(0,10)}</span><span>${s.time}</span><span class="text-green-400">${Math.round(s.confidence)}%</span></div>`).join('');
+            registerPendingSignal(signal, confidence, extra);
+            renderSignalHistory();
             document.getElementById('confidenceBar').style.width=`${Math.min(99,confidence)}%`;
             document.getElementById('confidencePercent').innerText=`${Math.round(confidence)}%`;
         }
@@ -709,6 +1048,7 @@
             MARKET_DATA[sym].digitsHistory.push(digit);
             trimMarketData(sym);
             if (sym !== currentMarket) return true;
+            if (pendingSignal) evaluateSignalOutcome(price, digit);
             syncCurrentMarketFromStore(sym);
             applyMarketDataToUI();
             updateConnectionStatus('connected', `Live · ${tickCount} ticks`);
@@ -730,6 +1070,7 @@
                 const signalEl = document.getElementById('currentSignal');
                 if (signalEl && !historyLoaded) signalEl.innerHTML = '<div class="data-spinner"></div><p class="text-xs text-gray-400 mt-2">Loading Deriv tick history...</p>';
                 else if (signalEl && historyLoaded) signalEl.innerHTML = '<p class="text-xs text-green-400"><i class="fas fa-check-circle mr-1"></i>Deriv feed ready. Press ANALYSE MARKET.</p>';
+                if (backtestMode) runBacktest();
             }
         }
         function onLiveTickReceived() {
@@ -832,8 +1173,10 @@
             } else speak("Waiting for Deriv tick history.");
         }
         function switchMarket(m) {
+            pendingSignal = null;
             currentMarket = m;
             document.getElementById('selectedMarketText').innerText = MARKET_NAMES[m];
+            renderAccuracyTracker();
             if (MARKET_DATA[m]?.priceData?.length) {
                 syncCurrentMarketFromStore(m);
                 applyMarketDataToUI();
@@ -847,6 +1190,7 @@
                 getTickHistory(m);
             }
             canAnalyze = true;
+            if (backtestMode) runBacktest();
         }
         function initMarketDropdown() {
             const content = document.getElementById('marketDropdownContent');
@@ -860,13 +1204,17 @@
         function initCharts(){ let ctx=document.getElementById('priceChart')?.getContext('2d'); if(ctx) priceChart=new Chart(ctx,{type:'line',data:{datasets:[{label:'Price',data:[],borderColor:'#667eea',backgroundColor:'rgba(102,126,234,0.1)',tension:0.4,fill:true,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#374151'},ticks:{color:'#9CA3AF'}},x:{display:false}}}});
             let dctx=document.getElementById('digitsDonut')?.getContext('2d'); if(dctx) digitsChart=new Chart(dctx,{type:'doughnut',data:{labels:['0','1','2','3','4','5','6','7','8','9'],datasets:[{data:Array(10).fill(0),backgroundColor:['#ef4444','#f59e0b','#eab308','#84cc16','#10b981','#06b6d4','#3b82f6','#8b5cf6','#d946ef','#ec4899'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',font:{size:9}}}}}}); }
         function startTradingApp(){
+            loadAccuracyStats();
+            renderAccuracyTracker();
             initMarketDropdown(); initCharts(); connectDeriv();
+            document.getElementById('clearAccuracyBtn')?.addEventListener('click', () => { if (confirm('Clear all live accuracy tracking data?')) clearAccuracyStats(); });
+            document.getElementById('backtestToggleBtn')?.addEventListener('click', () => setBacktestMode(!backtestMode));
             document.getElementById('floatingAnalyseBtn')?.addEventListener('click',resetAnalysis);
             document.getElementById('manualAnalysisBtn')?.addEventListener('click',()=>{ if(historyLoaded && digitsHistory.length>=DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); else speak("Waiting for Deriv tick history."); });
             document.getElementById('tickSelector')?.addEventListener('change',()=>getTickHistory(currentMarket));
-            document.querySelectorAll('.trade-type-btn').forEach(btn=>{ btn.addEventListener('click',(e)=>{ let type=btn.dataset.type; if(type==='matches_differs' && currentUserRole==='restricted' && !checkMatchesAccess()){ alert("Access to Matches/Differs requires valid session code."); return; } document.querySelectorAll('.trade-type-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); currentTradeType=type; canAnalyze=true; speak(`Switched to ${type.replace('_',' ')} analysis.`); }); });
+            document.querySelectorAll('.trade-type-btn').forEach(btn=>{ btn.addEventListener('click',(e)=>{ let type=btn.dataset.type; if(type==='matches_differs' && currentUserRole==='restricted' && !checkMatchesAccess()){ alert("Access to Matches/Differs requires valid session code."); return; } document.querySelectorAll('.trade-type-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); currentTradeType=type; canAnalyze=true; speak(`Switched to ${type.replace('_',' ')} analysis.`); if(backtestMode) runBacktest(); }); });
+            document.getElementById('refreshDataBtn')?.addEventListener('click',()=>{ getTickHistory(currentMarket); });
             document.getElementById('voiceToggleBtn')?.addEventListener('click',()=>{ voiceEnabled=!voiceEnabled; document.getElementById('voiceToggleBtn').innerHTML=voiceEnabled?'<i class="fas fa-volume-up"></i>':'<i class="fas fa-volume-mute"></i>'; if(voiceEnabled) speak("Voice alerts enabled."); });
-            document.getElementById('refreshDataBtn')?.addEventListener('click',()=>getTickHistory(currentMarket));
             if (currentUserRole === 'restricted') updateRestrictedTimerDisplay();
             speak("KAIRON connected to Deriv live feed. Press analyse market to begin.");
         }
