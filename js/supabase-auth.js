@@ -22,12 +22,32 @@
         return window.KAIRON_CONFIG || {};
     }
 
-    function initClient() {
+    function getConfigError() {
         const cfg = getConfig();
-        if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY || cfg.SUPABASE_URL.includes('YOUR_PROJECT')) {
-            return null;
+        if (!window.KAIRON_CONFIG) {
+            return 'config.js did not load. On your live site, upload config.js to the server (it was missing — 404).';
         }
-        return window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+        if (!cfg.SUPABASE_URL || cfg.SUPABASE_URL.includes('YOUR_PROJECT')) {
+            return 'Set SUPABASE_URL in config.js (Project Settings → API → Project URL).';
+        }
+        if (!cfg.SUPABASE_ANON_KEY || cfg.SUPABASE_ANON_KEY.includes('YOUR_SUPABASE')) {
+            return 'Set SUPABASE_ANON_KEY in config.js (Project Settings → API → publishable or anon public key).';
+        }
+        if (!window.supabase?.createClient) {
+            return 'Supabase library failed to load. Check your internet connection and refresh.';
+        }
+        return null;
+    }
+
+    function initClient() {
+        const err = getConfigError();
+        if (err) return { error: err };
+        const cfg = getConfig();
+        try {
+            return { client: window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) };
+        } catch (e) {
+            return { error: e.message || 'Could not connect to Supabase.' };
+        }
     }
 
     function clearRestrictedSession() {
@@ -157,10 +177,10 @@
         document.getElementById('cooldownOkBtn').onclick = () => { overlay.remove(); logoutAndClear(); };
     }
 
-    function showConfigError() {
+    function showConfigError(message) {
         const overlay = document.createElement('div');
         overlay.className = 'login-overlay';
-        overlay.innerHTML = `<div class="login-modal"><h2><i class="fas fa-cog"></i> Setup Required</h2><p class="text-sm text-gray-400 mb-4">Copy <code>config.example.js</code> to <code>config.js</code>, add your Supabase URL and anon key, then run <code>supabase/schema.sql</code> in the Supabase SQL editor.</p></div>`;
+        overlay.innerHTML = `<div class="login-modal"><h2><i class="fas fa-cog"></i> Setup Required</h2><p class="text-sm text-red-400 mb-3">${message}</p><p class="text-sm text-gray-400 mb-4">Also run <code>supabase/schema.sql</code> once in the Supabase SQL editor if you have not already.</p></div>`;
         document.body.appendChild(overlay);
     }
 
@@ -351,10 +371,11 @@
         document.getElementById('logoutBtn')?.addEventListener('click', logoutAndClear);
 
         supabase = initClient();
-        if (!supabase) {
-            showConfigError();
+        if (supabase.error || !supabase.client) {
+            showConfigError(supabase.error || 'Supabase configuration error.');
             return;
         }
+        supabase = supabase.client;
 
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
