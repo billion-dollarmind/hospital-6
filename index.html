@@ -171,6 +171,14 @@
         .tick-selector { background: #1a1a2e; border: 1px solid #667eea; border-radius: 8px; padding: 4px 8px; color: white; font-size: 12px; }
         @media (max-width: 640px) { .tab-btn { padding: 8px 16px; font-size: 12px; } .ldp-grid { gap: 4px; } }
         .remaining-time-badge { background: #1e293b; border-radius: 20px; padding: 2px 10px; font-size: 11px; color: #fbbf24; margin-left: 10px; }
+        .auth-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+        .auth-tab { flex: 1; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(102,126,234,0.3); color: #9ca3af; font-size: 12px; cursor: pointer; }
+        .auth-tab.active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-color: transparent; }
+        .auth-modal .hidden { display: none; }
+        .admin-user-list { max-height: 280px; overflow-y: auto; space-y: 8px; }
+        .admin-user-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px; margin-bottom: 8px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(102,126,234,0.2); }
+        .header-auth-btn { font-size: 10px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(102,126,234,0.3); color: #e5e7eb; cursor: pointer; }
+        .header-auth-btn:hover { background: rgba(102,126,234,0.3); }
     </style>
 </head>
 <body>
@@ -196,6 +204,9 @@
                     </div>
                     <div id="connectionStatus" class="flex items-center space-x-1 md:space-x-2 bg-gray-800/50 px-2 md:px-3 py-1 rounded-full"><div class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-yellow-500 animate-pulse"></div><span class="text-[10px] md:text-xs">Connecting...</span></div>
                     <div class="flex items-center space-x-2">
+                        <span id="userEmailLabel" class="hidden text-[10px] text-gray-400 max-w-[80px] truncate"></span>
+                        <button id="adminUsersBtn" type="button" class="header-auth-btn hidden" title="Approve new users"><i class="fas fa-user-check mr-1"></i>Users</button>
+                        <button id="logoutBtn" type="button" class="header-auth-btn hidden" title="Sign out"><i class="fas fa-sign-out-alt"></i></button>
                         <button id="voiceToggleBtn" class="voice-btn w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center hover:bg-gray-600 transition">
                             <i class="fas fa-volume-up text-sm"></i>
                         </button>
@@ -302,224 +313,11 @@
     <a href="https://wa.me/254799045699" target="_blank" class="fixed bottom-4 right-4 bg-green-500 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition z-50"><i class="fab fa-whatsapp text-white text-lg md:text-xl"></i></a>
     <audio id="alertSound" preload="auto"><source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" type="audio/mpeg"></audio>
 
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-auth.js"></script>
     <script>
-        // ======================= DUAL AUTHENTICATION SYSTEM =======================
-        // Admin (full access, no limits)
-        const ADMIN_USER = { email: "caleborenge08@gmail.com", password: "@Calekyzfx22", role: "admin" };
-        // Restricted user (1 hour daily, 12h cooldown, matches tool needs session code)
-        const RESTRICTED_USER = { email: "kairon@gmail.com", password: "kairontool254", role: "restricted" };
-        const MATCHES_SESSION_CODE = "42055578";
-        const RESTRICTED_DAILY_MS = 60 * 60 * 1000;   // 1 hour
-        const RESTRICTED_COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 hours
-        const TESTING_MODE = true; // Set to false to re-enable password on deploy
-
-        let currentUserRole = null;          // 'admin' or 'restricted'
-        let matchesAccessGranted = false;     // session flag for restricted user to use matches/differs
-        let restrictedTimerInterval = null;
-
-        function clearRestrictedSession() {
-            localStorage.removeItem("restricted_login_time");
-            localStorage.removeItem("restricted_cooldown_until");
-        }
-
-        function getRestrictedCooldownRemaining() {
-            const cooldown = localStorage.getItem("restricted_cooldown_until");
-            if (cooldown && Date.now() < parseInt(cooldown)) return parseInt(cooldown) - Date.now();
-            if (cooldown && Date.now() >= parseInt(cooldown)) localStorage.removeItem("restricted_cooldown_until");
-            return null;
-        }
-
-        function isRestrictedSessionValid() {
-            if (currentUserRole !== 'restricted') return true;
-            // Check cooldown first
-            const cooldownRemaining = getRestrictedCooldownRemaining();
-            if (cooldownRemaining !== null && cooldownRemaining > 0) return false;
-            // Check login time
-            const loginTime = localStorage.getItem("restricted_login_time");
-            if (!loginTime) return false;
-            const elapsed = Date.now() - parseInt(loginTime);
-            if (elapsed > RESTRICTED_DAILY_MS) {
-                // Enter cooling mode for 12 hours
-                const cooldownEnd = Date.now() + RESTRICTED_COOLDOWN_MS;
-                localStorage.setItem("restricted_cooldown_until", cooldownEnd);
-                localStorage.removeItem("restricted_login_time");
-                return false;
-            }
-            return true;
-        }
-
-        function showCooldownModal() {
-            const cooldownUntil = localStorage.getItem("restricted_cooldown_until");
-            let remainingHours = 12;
-            if (cooldownUntil) {
-                remainingHours = Math.ceil((parseInt(cooldownUntil) - Date.now()) / (1000 * 60 * 60));
-            }
-            const overlay = document.createElement('div');
-            overlay.className = 'cooldown-overlay';
-            overlay.innerHTML = `<div class="lock-modal"><h2><i class="fas fa-hourglass-half"></i> COOLING MODE</h2><div class="lock-warning"><i class="fas fa-clock mr-2"></i> Your 1-hour daily access has expired. System is cooling for ${remainingHours} more hours.<br>Please try again later.</div><button id="cooldownOkBtn">OK</button></div>`;
-            document.body.appendChild(overlay);
-            document.getElementById('cooldownOkBtn').onclick = () => { overlay.remove(); window.location.reload(); };
-        }
-
-        function logoutAndClear() {
-            localStorage.removeItem("kairon_active_session");
-            localStorage.removeItem("kairon_session_token");
-            localStorage.removeItem("kairon_is_locked");
-            localStorage.removeItem("kairon_authenticated");
-            localStorage.removeItem("kairon_current_role");
-            clearRestrictedSession();
-            if (restrictedTimerInterval) clearInterval(restrictedTimerInterval);
-            window.location.reload();
-        }
-
-        function startRestrictedSession() {
-            localStorage.setItem("restricted_login_time", Date.now());
-            localStorage.removeItem("restricted_cooldown_until");
-            updateRestrictedTimerDisplay();
-            if (restrictedTimerInterval) clearInterval(restrictedTimerInterval);
-            restrictedTimerInterval = setInterval(() => {
-                if (currentUserRole === 'restricted') {
-                    if (!isRestrictedSessionValid()) {
-                        clearInterval(restrictedTimerInterval);
-                        alert("Your 1-hour daily session has ended. Entering cooling mode for 12 hours.");
-                        logoutAndClear();
-                    } else {
-                        updateRestrictedTimerDisplay();
-                    }
-                }
-            }, 60000);
-        }
-
-        function updateRestrictedTimerDisplay() {
-            const timerDiv = document.getElementById('restrictedTimerDisplay');
-            if (currentUserRole === 'restricted' && timerDiv) {
-                const loginTime = localStorage.getItem("restricted_login_time");
-                if (loginTime) {
-                    const elapsed = Date.now() - parseInt(loginTime);
-                    const remainingMs = Math.max(0, RESTRICTED_DAILY_MS - elapsed);
-                    const minutesLeft = Math.floor(remainingMs / 60000);
-                    timerDiv.classList.remove('hidden');
-                    timerDiv.innerHTML = `<i class="fas fa-hourglass-half mr-1"></i>Session remaining: ${minutesLeft} min`;
-                } else {
-                    timerDiv.classList.add('hidden');
-                }
-            } else if (timerDiv) timerDiv.classList.add('hidden');
-        }
-
-        // Admin legacy lock system (preserved)
-        const STORAGE_KEYS = { ACTIVE_SESSION: "kairon_active_session", SESSION_TOKEN: "kairon_session_token", IS_LOCKED: "kairon_is_locked", IS_AUTHENTICATED: "kairon_authenticated" };
-        function generateSessionToken() { return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 18); }
-        function revokeOtherSessions() { const currentToken = localStorage.getItem(STORAGE_KEYS.SESSION_TOKEN); localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION, currentToken); return true; }
-        function validateAdminSession() { const currentToken = localStorage.getItem(STORAGE_KEYS.SESSION_TOKEN); const activeSession = localStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION); if (!currentToken || !activeSession || currentToken !== activeSession) { localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, "false"); localStorage.setItem(STORAGE_KEYS.IS_LOCKED, "true"); return false; } return true; }
-
-        function login(email, password) {
-            if (email === ADMIN_USER.email && password === ADMIN_USER.password) {
-                const isLocked = localStorage.getItem(STORAGE_KEYS.IS_LOCKED) === "true";
-                if (isLocked) return { success: false, locked: true, message: "System locked. Use unlock code." };
-                const newToken = generateSessionToken();
-                localStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, newToken);
-                revokeOtherSessions();
-                localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, "true");
-                localStorage.setItem(STORAGE_KEYS.IS_LOCKED, "false");
-                localStorage.setItem("kairon_current_role", "admin");
-                currentUserRole = "admin";
-                return { success: true, role: "admin" };
-            }
-            else if (email === RESTRICTED_USER.email && password === RESTRICTED_USER.password) {
-                const cooldown = getRestrictedCooldownRemaining();
-                if (cooldown !== null && cooldown > 0) return { success: false, message: "Account in cooling mode. Try again after 12 hours." };
-                // Clear any old admin flags
-                localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
-                localStorage.setItem("kairon_current_role", "restricted");
-                currentUserRole = "restricted";
-                startRestrictedSession();
-                matchesAccessGranted = false;
-                sessionStorage.removeItem("matches_code_granted");
-                return { success: true, role: "restricted" };
-            }
-            return { success: false, message: "Invalid email or password" };
-        }
-
-        function checkMatchesAccess() {
-            if (TESTING_MODE) return true;
-            if (currentUserRole === 'admin') return true;
-            if (currentUserRole === 'restricted') {
-                if (matchesAccessGranted) return true;
-                const code = prompt("⚠️ TOO MANY REQUESTS AT THE MOMENT\nKindly enter session code to access MATCHES/DIFFERS analysis:");
-                if (code === MATCHES_SESSION_CODE) {
-                    matchesAccessGranted = true;
-                    sessionStorage.setItem("matches_code_granted", "true");
-                    return true;
-                } else {
-                    alert("❌ Invalid session code. Access denied to Matches/Differs tool.");
-                    return false;
-                }
-            }
-            return false;
-        }
-
-        function launchApp() {
-            setTimeout(() => {
-                document.getElementById('loader').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('loader').style.display = 'none';
-                    document.getElementById('mainContent').style.display = 'block';
-                    startTradingApp();
-                }, 500);
-            }, 1500);
-        }
-        function enterAppAsAdmin() {
-            currentUserRole = 'admin';
-            matchesAccessGranted = true;
-            const newToken = generateSessionToken();
-            localStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, newToken);
-            localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION, newToken);
-            localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, "true");
-            localStorage.setItem(STORAGE_KEYS.IS_LOCKED, "false");
-            localStorage.setItem("kairon_current_role", "admin");
-            launchApp();
-        }
-
-        // Initialize authentication
-        (function initAuth() {
-            if (TESTING_MODE) { enterAppAsAdmin(); return; }
-            const savedRole = localStorage.getItem("kairon_current_role");
-            if (savedRole === 'admin') {
-                if (validateAdminSession()) {
-                    currentUserRole = 'admin';
-                    launchApp();
-                    return;
-                } else { localStorage.removeItem("kairon_current_role"); showLoginModal(); return; }
-            } 
-            else if (savedRole === 'restricted') {
-                if (isRestrictedSessionValid()) {
-                    currentUserRole = 'restricted';
-                    matchesAccessGranted = sessionStorage.getItem("matches_code_granted") === "true";
-                    startRestrictedSession();
-                    launchApp();
-                } else {
-                    const cooldownRemaining = getRestrictedCooldownRemaining();
-                    if (cooldownRemaining) showCooldownModal();
-                    else { localStorage.removeItem("kairon_current_role"); showLoginModal(); }
-                }
-                return;
-            }
-            else { showLoginModal(); }
-        })();
-
-        function showLoginModal() {
-            const overlay = document.createElement('div');
-            overlay.className = 'login-overlay';
-            overlay.innerHTML = `<div class="login-modal"><h2><i class="fas fa-shield-alt"></i> KAIRON SECURE ACCESS</h2><input type="email" id="loginEmail" placeholder="Email Address"><input type="password" id="loginPassword" placeholder="Password"><button id="loginBtn">ACCESS PLATFORM</button><div id="loginError" class="error-message"></div></div>`;
-            document.body.appendChild(overlay);
-            document.getElementById('loginBtn').addEventListener('click', () => {
-                const email = document.getElementById('loginEmail').value;
-                const pass = document.getElementById('loginPassword').value;
-                const res = login(email, pass);
-                if (res.success) { overlay.remove(); window.location.reload(); }
-                else { document.getElementById('loginError').textContent = res.message; }
-            });
-        }
+        // Auth: js/supabase-auth.js (email/password + admin approval via Supabase)
 
         // ======================= DERIV LIVE DATA + SIGNAL ENGINE =======================
         const DERIV_CONFIG = {
@@ -997,7 +795,7 @@
         
         function analyzeSignals(price, digit) {
             if (!canAnalyze || !historyLoaded) return false;
-            if (currentUserRole === 'restricted' && !isRestrictedSessionValid()) { alert("Daily session expired. Cooling mode active."); logoutAndClear(); return false; }
+            if (window.currentUserRole === 'restricted' && !isRestrictedSessionValid()) { alert("Daily session expired. Cooling mode active."); logoutAndClear(); return false; }
             if (currentTradeType === 'matches_differs' && !checkMatchesAccess()) { document.getElementById('currentSignal').innerHTML = '<div class="text-red-400 text-center p-2"><i class="fas fa-lock"></i> Access Denied: Session code required for Matches/Differs</div>'; return false; }
             if (digitsHistory.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return false;
             let result = null;
@@ -1212,12 +1010,13 @@
             document.getElementById('floatingAnalyseBtn')?.addEventListener('click',resetAnalysis);
             document.getElementById('manualAnalysisBtn')?.addEventListener('click',()=>{ if(historyLoaded && digitsHistory.length>=DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); else speak("Waiting for Deriv tick history."); });
             document.getElementById('tickSelector')?.addEventListener('change',()=>getTickHistory(currentMarket));
-            document.querySelectorAll('.trade-type-btn').forEach(btn=>{ btn.addEventListener('click',(e)=>{ let type=btn.dataset.type; if(type==='matches_differs' && currentUserRole==='restricted' && !checkMatchesAccess()){ alert("Access to Matches/Differs requires valid session code."); return; } document.querySelectorAll('.trade-type-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); currentTradeType=type; canAnalyze=true; speak(`Switched to ${type.replace('_',' ')} analysis.`); if(backtestMode) runBacktest(); }); });
+            document.querySelectorAll('.trade-type-btn').forEach(btn=>{ btn.addEventListener('click',(e)=>{ let type=btn.dataset.type; if(type==='matches_differs' && window.currentUserRole==='restricted' && !checkMatchesAccess()){ alert("Access to Matches/Differs requires valid session code."); return; } document.querySelectorAll('.trade-type-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); currentTradeType=type; canAnalyze=true; speak(`Switched to ${type.replace('_',' ')} analysis.`); if(backtestMode) runBacktest(); }); });
             document.getElementById('refreshDataBtn')?.addEventListener('click',()=>{ getTickHistory(currentMarket); });
             document.getElementById('voiceToggleBtn')?.addEventListener('click',()=>{ voiceEnabled=!voiceEnabled; document.getElementById('voiceToggleBtn').innerHTML=voiceEnabled?'<i class="fas fa-volume-up"></i>':'<i class="fas fa-volume-mute"></i>'; if(voiceEnabled) speak("Voice alerts enabled."); });
-            if (currentUserRole === 'restricted') updateRestrictedTimerDisplay();
+            if (window.currentUserRole === 'restricted') updateRestrictedTimerDisplay();
             speak("KAIRON connected to Deriv live feed. Press analyse market to begin.");
         }
+        KaironAuth.init();
         window.addEventListener("beforeunload",()=>{ if(pingIntervalId) clearInterval(pingIntervalId); if(ws) ws.close(); });
     </script>
 </body>
