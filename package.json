@@ -4,7 +4,11 @@
   "private": true,
   "scripts": {
     "start": "serve .",
-    "dev": "serve ."
+    "dev": "serve .",
+    "setup:admin": "node scripts/setup-admin.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1"
   },
   "devDependencies": {
     "serve": "^14.2.4"
