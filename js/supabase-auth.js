@@ -276,7 +276,12 @@
             overlay.remove();
             await enterApprovedUser(profile);
         } catch (e) {
-            errEl.textContent = e.message || 'Sign in failed.';
+            const msg = e.message || 'Sign in failed.';
+            if (msg.toLowerCase().includes('invalid login credentials') && isListedAdmin(email)) {
+                errEl.innerHTML = '<span class="text-red-400">Invalid email or password.</span><br><span class="text-gray-400 text-[11px] mt-1 block">Admin account not found or wrong password. Click <strong>Register</strong> to create it with <code>superadmin101!</code>, or reset the password in Supabase Dashboard → Authentication → Users.</span>';
+            } else {
+                errEl.textContent = msg;
+            }
         } finally {
             btn.disabled = false;
             btn.textContent = 'SIGN IN';
