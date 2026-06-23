@@ -1,5 +1,5 @@
 /**
- * One-time admin setup — creates or resets the admin user in Supabase.
+ * One-time admin setup — creates or resets admin users in Supabase.
  * Requires SUPABASE_SERVICE_ROLE_KEY in .env (Dashboard → Settings → API → secret key).
  *
  * Usage: npm run setup:admin
@@ -33,8 +33,11 @@ function loadEnv() {
 const env = loadEnv();
 const url = env.SUPABASE_URL;
 const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
-const email = (env.ADMIN_EMAIL || 'caleborenge08@gmail.com').toLowerCase();
 const password = env.ADMIN_PASSWORD;
+const emails = (env.ADMIN_EMAILS || env.ADMIN_EMAIL || 'caleborenge08@gmail.com')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
 
 if (!url || url.includes('YOUR_PROJECT')) {
     console.error('Set SUPABASE_URL in .env');
@@ -60,45 +63,45 @@ if (listErr) {
     process.exit(1);
 }
 
-const existing = list.users.find(u => u.email?.toLowerCase() === email);
+for (const email of emails) {
+    const existing = list.users.find(u => u.email?.toLowerCase() === email);
 
-if (existing) {
-    const { error } = await admin.auth.admin.updateUserById(existing.id, {
-        password,
-        email_confirm: true
-    });
-    if (error) {
-        console.error('Could not update admin password:', error.message);
-        process.exit(1);
+    if (existing) {
+        const { error } = await admin.auth.admin.updateUserById(existing.id, {
+            password,
+            email_confirm: true
+        });
+        if (error) {
+            console.error(`Could not update ${email}:`, error.message);
+            continue;
+        }
+        await admin.from('profiles').upsert({
+            id: existing.id,
+            email,
+            status: 'approved',
+            role: 'admin',
+            approved_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+        console.log('Updated admin:', email);
+    } else {
+        const { data, error } = await admin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true
+        });
+        if (error) {
+            console.error(`Could not create ${email}:`, error.message);
+            continue;
+        }
+        await admin.from('profiles').upsert({
+            id: data.user.id,
+            email,
+            status: 'approved',
+            role: 'admin',
+            approved_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+        console.log('Created admin:', email);
     }
-    await admin.from('profiles').upsert({
-        id: existing.id,
-        email,
-        status: 'approved',
-        role: 'admin',
-        approved_at: new Date().toISOString()
-    }, { onConflict: 'id' });
-    console.log('Admin password updated and profile set to approved admin.');
-    console.log('Email:', email);
-} else {
-    const { data, error } = await admin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true
-    });
-    if (error) {
-        console.error('Could not create admin:', error.message);
-        process.exit(1);
-    }
-    await admin.from('profiles').upsert({
-        id: data.user.id,
-        email,
-        status: 'approved',
-        role: 'admin',
-        approved_at: new Date().toISOString()
-    }, { onConflict: 'id' });
-    console.log('Admin account created.');
-    console.log('Email:', email);
 }
 
-console.log('Sign in on the site with this email and ADMIN_PASSWORD from .env');
+console.log('Done. Sign in with any admin email and ADMIN_PASSWORD from .env');

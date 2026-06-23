@@ -22,6 +22,29 @@
         return window.KAIRON_CONFIG || {};
     }
 
+    function getAdminEmails() {
+        const cfg = getConfig();
+        if (Array.isArray(cfg.ADMIN_EMAILS)) {
+            return cfg.ADMIN_EMAILS.map(e => e.trim().toLowerCase()).filter(Boolean);
+        }
+        if (cfg.ADMIN_EMAIL) return [cfg.ADMIN_EMAIL.trim().toLowerCase()];
+        return ['caleborenge08@gmail.com', 'super3email@gmail.com'];
+    }
+
+    function isListedAdmin(email) {
+        return getAdminEmails().includes(email.trim().toLowerCase());
+    }
+
+    async function syncListedAdmin() {
+        const { error } = await supabase.rpc('sync_listed_admin');
+        if (error) console.warn('sync_listed_admin:', error.message);
+    }
+
+    async function loadProfile(userId) {
+        await syncListedAdmin();
+        return fetchProfile(userId);
+    }
+
     function getConfigError() {
         const cfg = getConfig();
         if (!window.KAIRON_CONFIG) {
@@ -203,7 +226,7 @@
                 <div id="authRegisterPanel" class="hidden">
                     <input type="email" id="registerEmail" placeholder="Email Address" autocomplete="email">
                     <input type="password" id="registerPassword" placeholder="Password (min 6 characters)" autocomplete="new-password">
-                    <p class="text-[10px] text-gray-500 mb-2">New accounts require admin approval before access.</p>
+                    <p class="text-[10px] text-gray-500 mb-2">New accounts require admin approval. Listed admin emails are approved instantly.</p>
                     <button type="button" id="registerBtn">CREATE ACCOUNT</button>
                 </div>
                 <div id="loginError" class="error-message"></div>
@@ -239,7 +262,7 @@
         try {
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) throw error;
-            const profile = await fetchProfile(data.user.id);
+            const profile = await loadProfile(data.user.id);
             if (profile.status === 'pending') {
                 await supabase.auth.signOut();
                 errEl.textContent = 'Your account is awaiting admin approval.';
@@ -275,6 +298,24 @@
         try {
             const { data, error } = await supabase.auth.signUp({ email, password });
             if (error) throw error;
+            if (isListedAdmin(email)) {
+                if (data.session) {
+                    const profile = await loadProfile(data.user.id);
+                    overlay.remove();
+                    await enterApprovedUser(profile);
+                    return;
+                }
+                const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+                if (!signInErr && signInData.user) {
+                    const profile = await loadProfile(signInData.user.id);
+                    overlay.remove();
+                    await enterApprovedUser(profile);
+                    return;
+                }
+                document.querySelector('.auth-tab[data-tab="login"]')?.click();
+                errEl.innerHTML = '<span class="text-green-400"><i class="fas fa-check-circle"></i> Admin account created. Sign in now.</span>';
+                return;
+            }
             await supabase.auth.signOut();
             document.querySelector('.auth-tab[data-tab="login"]')?.click();
             errEl.innerHTML = '<span class="text-green-400"><i class="fas fa-check-circle"></i> Account created! Wait for admin approval, then sign in.</span>';
@@ -380,7 +421,7 @@
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
             try {
-                const profile = await fetchProfile(session.user.id);
+                const profile = await loadProfile(session.user.id);
                 if (profile.status === 'approved') {
                     await enterApprovedUser(profile);
                     return;

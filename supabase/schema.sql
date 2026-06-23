@@ -26,7 +26,7 @@ create policy "Admins can read all profiles"
         )
     );
 
--- Change this email to your admin address (must match config.js ADMIN_EMAIL)
+-- Admin emails: auto-approved as admin on sign-up (no approval needed)
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -34,18 +34,50 @@ security definer
 set search_path = public
 as $$
 declare
-    admin_email constant text := 'caleborenge08@gmail.com';
+    admin_emails text[] := array[
+        'caleborenge08@gmail.com',
+        'super3email@gmail.com'
+    ];
+    normalized_email text := lower(trim(new.email));
+    is_admin boolean := normalized_email = any(admin_emails);
 begin
-    insert into public.profiles (id, email, status, role)
+    insert into public.profiles (id, email, status, role, approved_at)
     values (
         new.id,
         new.email,
-        case when lower(new.email) = lower(admin_email) then 'approved' else 'pending' end,
-        case when lower(new.email) = lower(admin_email) then 'admin' else 'user' end
+        case when is_admin then 'approved' else 'pending' end,
+        case when is_admin then 'admin' else 'user' end,
+        case when is_admin then now() else null end
     );
     return new;
 end;
 $$;
+
+-- Fixes existing admin accounts that were stuck as pending
+create or replace function public.sync_listed_admin()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    admin_emails text[] := array[
+        'caleborenge08@gmail.com',
+        'super3email@gmail.com'
+    ];
+    user_email text := lower(trim(auth.jwt() ->> 'email'));
+begin
+    if user_email = any(admin_emails) then
+        update public.profiles
+        set status = 'approved',
+            role = 'admin',
+            approved_at = coalesce(approved_at, now())
+        where id = auth.uid();
+    end if;
+end;
+$$;
+
+grant execute on function public.sync_listed_admin() to authenticated;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
