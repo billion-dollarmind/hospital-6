@@ -204,15 +204,12 @@
                     </div>
                     <div id="connectionStatus" class="flex items-center space-x-1 md:space-x-2 bg-gray-800/50 px-2 md:px-3 py-1 rounded-full"><div class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-yellow-500 animate-pulse"></div><span class="text-[10px] md:text-xs">Connecting...</span></div>
                     <div class="flex items-center space-x-2">
-                        <span id="userEmailLabel" class="hidden text-[10px] text-gray-400 max-w-[80px] truncate"></span>
-                        <button id="adminUsersBtn" type="button" class="header-auth-btn hidden" title="Approve new users"><i class="fas fa-user-check mr-1"></i>Users</button>
-                        <button id="logoutBtn" type="button" class="header-auth-btn hidden" title="Sign out"><i class="fas fa-sign-out-alt"></i></button>
+                        <button id="logoutBtn" type="button" class="header-auth-btn hidden" title="Lock site"><i class="fas fa-sign-out-alt"></i></button>
                         <button id="voiceToggleBtn" class="voice-btn w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center hover:bg-gray-600 transition">
                             <i class="fas fa-volume-up text-sm"></i>
                         </button>
                     </div>
                 </div>
-                <div id="restrictedTimerDisplay" class="text-right text-[10px] text-amber-400 mt-1 hidden"></div>
             </div>
         </header>
         
@@ -313,11 +310,9 @@
     <a href="https://wa.me/254799045699" target="_blank" class="fixed bottom-4 right-4 bg-green-500 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition z-50"><i class="fab fa-whatsapp text-white text-lg md:text-xl"></i></a>
     <audio id="alertSound" preload="auto"><source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" type="audio/mpeg"></audio>
 
-    <script src="config.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/supabase-auth.js"></script>
+    <script src="js/simple-auth.js"></script>
     <script>
-        // Auth: js/supabase-auth.js (email/password + admin approval via Supabase)
+        // Auth: single password gate (js/simple-auth.js)
 
         // ======================= DERIV LIVE DATA + SIGNAL ENGINE =======================
         const DERIV_CONFIG = {
@@ -462,7 +457,7 @@
             return null;
         }
         function analyzeEvenOdd() { return analyzeEvenOddOnWindow(getAnalysisWindow()); }
-        function analyzeMatchesDiffers() { if (!checkMatchesAccess()) return null; return analyzeMatchesDiffersOnWindow(getAnalysisWindow()); }
+        function analyzeMatchesDiffers() { return analyzeMatchesDiffersOnWindow(getAnalysisWindow()); }
         function analyzeRiseFall() { return analyzeRiseFallOnPrices(priceData.slice(-50), priceData.slice(-51, -1)); }
         function analyzeOverUnder() { return analyzeOverUnderOnWindow(getAnalysisWindow()); }
         function runAnalysisAt(prices, digits, tradeType, endIdx) {
@@ -795,8 +790,6 @@
         
         function analyzeSignals(price, digit) {
             if (!canAnalyze || !historyLoaded) return false;
-            if (window.currentUserRole === 'restricted' && !isRestrictedSessionValid()) { alert("Daily session expired. Cooling mode active."); logoutAndClear(); return false; }
-            if (currentTradeType === 'matches_differs' && !checkMatchesAccess()) { document.getElementById('currentSignal').innerHTML = '<div class="text-red-400 text-center p-2"><i class="fas fa-lock"></i> Access Denied: Session code required for Matches/Differs</div>'; return false; }
             if (digitsHistory.length < DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) return false;
             let result = null;
             if (currentTradeType === 'over_under') result = analyzeOverUnder();
@@ -1010,10 +1003,9 @@
             document.getElementById('floatingAnalyseBtn')?.addEventListener('click',resetAnalysis);
             document.getElementById('manualAnalysisBtn')?.addEventListener('click',()=>{ if(historyLoaded && digitsHistory.length>=DERIV_CONFIG.MIN_TICKS_FOR_ANALYSIS) analyzeSignals(priceData[priceData.length-1], digitsHistory[digitsHistory.length-1]); else speak("Waiting for Deriv tick history."); });
             document.getElementById('tickSelector')?.addEventListener('change',()=>getTickHistory(currentMarket));
-            document.querySelectorAll('.trade-type-btn').forEach(btn=>{ btn.addEventListener('click',(e)=>{ let type=btn.dataset.type; if(type==='matches_differs' && window.currentUserRole==='restricted' && !checkMatchesAccess()){ alert("Access to Matches/Differs requires valid session code."); return; } document.querySelectorAll('.trade-type-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); currentTradeType=type; canAnalyze=true; speak(`Switched to ${type.replace('_',' ')} analysis.`); if(backtestMode) runBacktest(); }); });
+            document.querySelectorAll('.trade-type-btn').forEach(btn=>{ btn.addEventListener('click',(e)=>{ let type=btn.dataset.type; document.querySelectorAll('.trade-type-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); currentTradeType=type; canAnalyze=true; speak(`Switched to ${type.replace('_',' ')} analysis.`); if(backtestMode) runBacktest(); }); });
             document.getElementById('refreshDataBtn')?.addEventListener('click',()=>{ getTickHistory(currentMarket); });
             document.getElementById('voiceToggleBtn')?.addEventListener('click',()=>{ voiceEnabled=!voiceEnabled; document.getElementById('voiceToggleBtn').innerHTML=voiceEnabled?'<i class="fas fa-volume-up"></i>':'<i class="fas fa-volume-mute"></i>'; if(voiceEnabled) speak("Voice alerts enabled."); });
-            if (window.currentUserRole === 'restricted') updateRestrictedTimerDisplay();
             speak("KAIRON connected to Deriv live feed. Press analyse market to begin.");
         }
         KaironAuth.init();

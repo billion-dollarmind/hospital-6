@@ -277,8 +277,11 @@
             await enterApprovedUser(profile);
         } catch (e) {
             const msg = e.message || 'Sign in failed.';
-            if (msg.toLowerCase().includes('invalid login credentials') && isListedAdmin(email)) {
-                errEl.innerHTML = '<span class="text-red-400">Invalid email or password.</span><br><span class="text-gray-400 text-[11px] mt-1 block">Admin account not found or wrong password. Click <strong>Register</strong> to create it with <code>superadmin101!</code>, or reset the password in Supabase Dashboard → Authentication → Users.</span>';
+            const code = e.code || e.error_code || '';
+            if (code === 'email_not_confirmed' || msg.toLowerCase().includes('email not confirmed')) {
+                errEl.innerHTML = '<span class="text-red-400">Email not confirmed yet.</span><br><span class="text-gray-400 text-[11px] mt-1 block">Check your inbox for the Supabase confirmation link, or in Supabase Dashboard → Authentication → Users → confirm the user manually. You can also disable &quot;Confirm email&quot; under Authentication → Providers → Email.</span>';
+            } else if (msg.toLowerCase().includes('invalid login credentials')) {
+                errEl.innerHTML = '<span class="text-red-400">Invalid email or password.</span><br><span class="text-gray-400 text-[11px] mt-1 block">Use the <strong>exact password</strong> from registration, or reset it in Supabase Dashboard → Authentication → Users → select your email → Reset password.</span>';
             } else {
                 errEl.textContent = msg;
             }
@@ -318,7 +321,11 @@
                     return;
                 }
                 document.querySelector('.auth-tab[data-tab="login"]')?.click();
-                errEl.innerHTML = '<span class="text-green-400"><i class="fas fa-check-circle"></i> Admin account created. Sign in now.</span>';
+                if (signInErr?.message?.toLowerCase().includes('email not confirmed') || signInErr?.code === 'email_not_confirmed') {
+                    errEl.innerHTML = '<span class="text-amber-400"><i class="fas fa-envelope mr-1"></i> Account created — confirm your email first.</span><br><span class="text-gray-400 text-[11px] mt-1 block">Check your inbox, or confirm manually in Supabase → Authentication → Users.</span>';
+                } else {
+                    errEl.innerHTML = '<span class="text-green-400"><i class="fas fa-check-circle"></i> Account created.</span><br><span class="text-gray-400 text-[11px] mt-1 block">Sign in with the <strong>same password</strong> you just used to register.</span>';
+                }
                 return;
             }
             await supabase.auth.signOut();
